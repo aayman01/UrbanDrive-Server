@@ -3,9 +3,14 @@ import { CarModel } from '../models/Car';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export const getCars = asyncHandler(async (req: Request, res: Response) => {
-  const cars = await CarModel.find();
-  res.json(cars);
-});
+    const sortField = req.query.sortField?.toString() || 'price'; 
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1; 
+  
+    const cars = await CarModel.find().sort({ [sortField]: sortOrder });
+  
+    res.json(cars);
+  });
+  
 
 export const getCar = asyncHandler(async (req: Request, res: Response) => {
   const car = await CarModel.findById(req.params.id);
