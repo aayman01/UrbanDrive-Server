@@ -29,8 +29,13 @@ async function run() {
     // Send a ping to confirm a successful connection
 
     const usersCollection = client.db("urbanDrive").collection("users");
-    const carsCollection = client.db("urbanDrive").collection("cars");
-    
+
+
+    app.get('/cars', async (req, res) => {
+      const result= await usersCollection.find().toArray();
+      res.send(result);
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
