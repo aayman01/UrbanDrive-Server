@@ -31,6 +31,17 @@ async function run() {
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     
+    // user related api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existUser = await usersCollection.findOne(query);
+      if (existUser) {
+        return res.send({ message: "user already exists", insertedId: null });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
