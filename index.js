@@ -39,23 +39,38 @@ async function run() {
         const skip = (page-1)*limit;
 
         const categoryName = req.query.category || '';
+        const minPrice = parseFloat(req.query.minPrice) || 0;
+        const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+        const sortOption = req.query.sort || ''; 
+        console.log('mainPrice:', minPrice, 'maxPrice', maxPrice);
 
         try {
-          // Get total number of cars
-          const totalCars = await carsCollection.countDocuments();
-          const query = categoryName 
-            ? { category: { $regex: categoryName, $options: 'i' } } 
-            : {};
+        const query = {
+                
+                ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+                // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+                price: { $gte: minPrice, $lte: maxPrice }
+              };
+              let sort = {};
+              if (sortOption === 'price-asc') {
+                  sort = { price: 1 }; // Sort by price ascending
+              } else if (sortOption === 'price-desc') {
+                  sort = { price: -1 }; // Sort by price descending
+              } else if (sortOption === 'date-desc') {
+                  sort = { productCreationDateTime: -1 }; // Sort by date descending (newest first)
+              }
       
-          // Fetch cars with pagination
-          const Cars = await carsCollection.find(query).skip(skip).limit(limit).toArray();
-         
+         // Fetch total cars count without pagination
+        const totalCars = await carsCollection.find(query).count();
+
+        // Fetch cars with pagination
+        const Cars = await carsCollection.find(query).sort(sort).skip(skip).limit(limit).toArray();
           // Calculate total pages
           const totalPages = Math.ceil(totalCars / limit);
       
           // Send the paginated data along with totalPages and totalCars
        
-          res.json({ Cars, totalPages, totalCars, currentPage: page });
+          res.json({ Cars,totalCars, totalPages, totalCars, currentPage: page });
         } catch (error) {
           res.status(500).json({ message: 'Server error', error });
         }
