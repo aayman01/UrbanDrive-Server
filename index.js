@@ -8,6 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
+
 app.use(express.json());
 
 
@@ -29,12 +30,36 @@ async function run() {
     // Send a ping to confirm a successful connection
 
     const usersCollection = client.db("urbanDrive").collection("users");
+    const carsCollection = client.db("urbanDrive").collection("cars");
+    
+     
+    app.get('/cars',async(req,res)=>{
+      const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
+        const limit = parseInt(req.query.limit) || 6;
+        const skip = (page-1)*limit;
 
+        const categoryName = req.query.category || '';
 
-    app.get('/cars', async (req, res) => {
-      const result= await usersCollection.find().toArray();
-      res.send(result);
-    });
+        try {
+          // Get total number of cars
+          const totalCars = await carsCollection.countDocuments();
+          const query = categoryName 
+            ? { category: { $regex: categoryName, $options: 'i' } } 
+            : {};
+      
+          // Fetch cars with pagination
+          const Cars = await carsCollection.find(query).skip(skip).limit(limit).toArray();
+         
+          // Calculate total pages
+          const totalPages = Math.ceil(totalCars / limit);
+      
+          // Send the paginated data along with totalPages and totalCars
+       
+          res.json({ Cars, totalPages, totalCars, currentPage: page });
+        } catch (error) {
+          res.status(500).json({ message: 'Server error', error });
+        }
+    })
 
 
     await client.db("admin").command({ ping: 1 });
