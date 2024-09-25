@@ -18,7 +18,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@main.mq0mae1.mongodb.net/?retryWrites=true&w=majority&appName=Main`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -38,8 +40,8 @@ interface Car {
 async function run() {
   try {
     // await client.connect();
-    const database = client.db("urbanDrive");
-    const carsCollection = database.collection<Car>("cars");
+    
+    const carsCollection = client.db("urbanDrive").collection<Car>("cars");  
 
     // Get all cars
     app.get('/cars', async (req: Request, res: Response) => {
