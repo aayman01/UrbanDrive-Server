@@ -42,14 +42,15 @@ async function run() {
         const minPrice = parseFloat(req.query.minPrice) || 0;
         const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
         const sortOption = req.query.sort || ''; 
-        console.log('mainPrice:', minPrice, 'maxPrice', maxPrice);
+        const seatCount = parseInt(req.query.seatCount) || null;
 
         try {
         const query = {
                 
                 ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
                 // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-                price: { $gte: minPrice, $lte: maxPrice }
+                price: { $gte: minPrice, $lte: maxPrice },
+                ...(seatCount && { seatCount: { $gte: seatCount } })
               };
               let sort = {};
               if (sortOption === 'price-asc') {
@@ -57,18 +58,22 @@ async function run() {
               } else if (sortOption === 'price-desc') {
                   sort = { price: -1 }; // Sort by price descending
               } else if (sortOption === 'date-desc') {
-                  sort = { productCreationDateTime: -1 }; // Sort by date descending (newest first)
-              }
+                sort = { date: -1 }; // Sort by date descending (newest first)
+            } else if (sortOption === 'date-asc') {
+                sort = { date: 1 };}
       
          // Fetch total cars count without pagination
-        const totalCars = await carsCollection.find(query).count();
+         const totalCars = await carsCollection.countDocuments();
+            console.log("totalcars:",totalCars)
 
         // Fetch cars with pagination
+        
         const Cars = await carsCollection.find(query).sort(sort).skip(skip).limit(limit).toArray();
           // Calculate total pages
           const totalPages = Math.ceil(totalCars / limit);
       
           // Send the paginated data along with totalPages and totalCars
+          console.log("Incoming query parameters:", req.query);
        
           res.json({ Cars,totalCars, totalPages, totalCars, currentPage: page });
         } catch (error) {
