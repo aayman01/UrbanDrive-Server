@@ -95,12 +95,12 @@ async function run() {
     });
 
 
-    // payment----------create-payment-intent---------
+    // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
       // generate client secret
       const priceCent = parseFloat(price) * 100;
-      // console.log();
+
       if (priceCent < 1) return;
       const { client_secret } = await stripe.paymentIntents.create({
         amount: priceCent,
