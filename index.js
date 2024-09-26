@@ -5,8 +5,8 @@ require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 5000;
-
+const port = process.env.PORT || 8000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
 app.use(express.json());
@@ -31,54 +31,55 @@ async function run() {
 
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
-    
-     
-    app.get('/cars',async(req,res)=>{
+
+
+    app.get('/cars', async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
-        const limit = parseInt(req.query.limit) || 6;
-        const skip = (page-1)*limit;
+      const limit = parseInt(req.query.limit) || 6;
+      const skip = (page - 1) * limit;
 
-        const categoryName = req.query.category || '';
-        const minPrice = parseFloat(req.query.minPrice) || 0;
-        const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
-        const sortOption = req.query.sort || ''; 
-        const seatCount = parseInt(req.query.seatCount) || null;
+      const categoryName = req.query.category || '';
+      const minPrice = parseFloat(req.query.minPrice) || 0;
+      const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+      const sortOption = req.query.sort || '';
+      const seatCount = parseInt(req.query.seatCount) || null;
 
-        try {
+      try {
         const query = {
-                
-                ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-                // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-                price: { $gte: minPrice, $lte: maxPrice },
-                ...(seatCount && { seatCount: { $gte: seatCount } })
-              };
-              let sort = {};
-              if (sortOption === 'price-asc') {
-                  sort = { price: 1 }; // Sort by price ascending
-              } else if (sortOption === 'price-desc') {
-                  sort = { price: -1 }; // Sort by price descending
-              } else if (sortOption === 'date-desc') {
-                sort = { date: -1 }; // Sort by date descending (newest first)
-            } else if (sortOption === 'date-asc') {
-                sort = { date: 1 };}
-      
-         // Fetch total cars count without pagination
-         const totalCars = await carsCollection.countDocuments();
-            console.log("totalcars:",totalCars)
+
+          ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+          // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+          price: { $gte: minPrice, $lte: maxPrice },
+          ...(seatCount && { seatCount: { $gte: seatCount } })
+        };
+        let sort = {};
+        if (sortOption === 'price-asc') {
+          sort = { price: 1 }; // Sort by price ascending
+        } else if (sortOption === 'price-desc') {
+          sort = { price: -1 }; // Sort by price descending
+        } else if (sortOption === 'date-desc') {
+          sort = { date: -1 }; // Sort by date descending (newest first)
+        } else if (sortOption === 'date-asc') {
+          sort = { date: 1 };
+        }
+
+        // Fetch total cars count without pagination
+        const totalCars = await carsCollection.countDocuments();
+        console.log("totalcars:", totalCars)
 
         // Fetch cars with pagination
-        
+
         const Cars = await carsCollection.find(query).sort(sort).skip(skip).limit(limit).toArray();
-          // Calculate total pages
-          const totalPages = Math.ceil(totalCars / limit);
-      
-          // Send the paginated data along with totalPages and totalCars
-          console.log("Incoming query parameters:", req.query);
-       
-          res.json({ Cars,totalCars, totalPages, totalCars, currentPage: page });
-        } catch (error) {
-          res.status(500).json({ message: 'Server error', error });
-        }
+        // Calculate total pages
+        const totalPages = Math.ceil(totalCars / limit);
+
+        // Send the paginated data along with totalPages and totalCars
+        console.log("Incoming query parameters:", req.query);
+
+        res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
+      } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+      }
     })
 
     // user related api
@@ -93,6 +94,25 @@ async function run() {
       res.send(result);
     });
 
+
+    // payment----------create-payment-intent------
+    app.post("/create-payment-intent", async (req, res) => {
+      const price = req.body.price;
+      // generate client secret
+      const priceCent = parseFloat(price) * 100;
+
+      if (priceCent < 1) return;
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: priceCent,
+        currency: "usd",
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+      // and client secret as response
+      res.send({ clientSecret: client_secret });
+    });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
