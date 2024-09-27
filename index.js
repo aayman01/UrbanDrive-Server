@@ -117,6 +117,17 @@ async function run() {
       // and client secret as response
       res.send({ clientSecret: client_secret });
     });
+
+
+    app.get("/cars/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const car = await carsCollection.findOne(query);
+      res.send(car);
+    });
+
+
+    
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
