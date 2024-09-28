@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
-import jwt from 'jsonwebtoken';
+// import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -42,6 +42,7 @@ async function run() {
     // await client.connect();
     
     const carsCollection = client.db("urbanDrive").collection<Car>("cars");  
+    const usersCollection = client.db("urbanDrive").collection("users");
 
     // Get all cars
     app.get('/cars', async (req: Request, res: Response) => {
@@ -56,33 +57,16 @@ async function run() {
       const car = await carsCollection.findOne(query);
       res.json(car);
     });
-
-    // Add a new car
-    app.post('/cars', async (req: Request, res: Response) => {
-      const newCar: Car = req.body;
-      const result = await carsCollection.insertOne(newCar);
-      res.json(result);
-    });
-
-    // Update a car
-    app.put('/cars/:id', async (req: Request, res: Response) => {
-      const id = req.params.id;
-      const updatedCar: Car = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const options = { upsert: true };
-      const updateDoc = {
-        $set: updatedCar,
-      };
-      const result = await carsCollection.updateOne(filter, updateDoc, options);
-      res.json(result);
-    });
-
-    // Delete a car
-    app.delete('/cars/:id', async (req: Request, res: Response) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await carsCollection.deleteOne(query);
-      res.json(result);
+// users
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existUser = await usersCollection.findOne(query);
+      if (existUser) {
+        return res.send({ message: "user already exists", insertedId: null });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
     });
 
     console.log("Connected to MongoDB");
