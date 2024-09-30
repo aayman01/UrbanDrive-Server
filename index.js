@@ -30,6 +30,7 @@ async function run() {
 
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
+    const bookingsCollection = client.db("urbanDrive").collection("bookings");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -113,7 +114,7 @@ async function run() {
           enabled: true,
         },
       });
-      // and client secret as response
+      // and client secret as response`
       res.send({ clientSecret: client_secret });
     });
 
@@ -124,6 +125,25 @@ async function run() {
       const car = await carsCollection.findOne(query);
       res.send(car);
     });
+
+    // bookings
+    app.post("/bookings", async (req, res) => {
+      try{
+        const bookingData = req.body;
+        const result = await bookingsCollection.insertOne(bookingData);
+        res.send({success: true, bookingId: result.insertedId});
+      }catch(error){
+        console.error("Error creating booking:", error);
+        res.status(500).send({ success: false, error: "Failed to create booking" });
+      }
+    })
+
+    app.get("/bookings", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const bookings = await bookingsCollection.find(query).toArray();
+      res.send(bookings);
+    })
 
 
     
