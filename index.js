@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
@@ -21,6 +23,19 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+// nodemailer
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587, // or 465 for SSL
+  secure: false, // true for 465, false for other ports
+  auth: {
+      user: process.env.EMAIL_USER, // email address
+      pass: process.env.EMAIL_PASS, // email password
+  },
+});
+
+
 
 async function run() {
   try {
@@ -144,6 +159,62 @@ async function run() {
       const bookings = await bookingsCollection.find(query).toArray();
       res.send(bookings);
     })
+
+
+    //  API to send verification code
+    app.post('/send-verification-code', async (req, res) => {
+      const  email  = req.body.email;
+      const query = { email: email };
+      console.log('email:', email);
+      
+      const verificationCode = crypto.randomInt(100000, 999999).toString();
+      const user = await usersCollection.findOne({ email });
+      if (user) {
+        await usersCollection.updateOne({ email }, { $set: { verificationCode, verificationCodeExpires: Date.now() + 3600000 } });
+      } else {
+        await usersCollection.insertOne({ email, verificationCode, verificationCodeExpires: Date.now() + 3600000 });
+      }
+    
+      // Send the verification code to the user's email
+      const mailOptions = {
+        from: 'UrbanDrive',
+        to: email,
+        subject: 'Your Email Verification Code',
+        text: `Your verification code is: ${verificationCode}`,
+      };
+    
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Error sending verification email:', error);
+          res.status(500).send({ success: false, message: 'Error sending verification email' });
+        } else {
+          console.log('Verification email sent:', info.response);
+          res.send({ success: true, message: 'Verification email sent' });
+        }
+      });
+    });
+
+    // API to Verify Code
+    app.post('/verify-code', async (req, res) => {
+      const { email, code } = req.body;
+    
+      // Fetch the user from the database
+      const user = await usersCollection.findOne({ email });
+    
+      // Check if the code matches and is not expired
+      if (user && user.verificationCode === code && user.verificationCodeExpires > Date.now()) {
+        // If the code is correct, remove the verificationCode fields and mark email as verified
+        await usersCollection.updateOne(
+          { email },
+          { $unset: { verificationCode: "", verificationCodeExpires: "" }, $set: { isEmailVerified: true } }
+        );
+        res.send({ success: true, message: 'Email verified successfully' });
+      } else {
+        res.status(400).send({ success: false, message: 'Invalid or expired verification code' });
+      }
+    });
+    
+    
 
 
     
