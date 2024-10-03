@@ -2,13 +2,15 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
-
+// app.use(cors({
+//   origin: 'http://localhost:5173' // Replace with your front-end URL in production
+// }));
 app.use(express.json());
 
 
@@ -33,54 +35,104 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     
      
-    app.get('/cars',async(req,res)=>{
-      const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
-        const limit = parseInt(req.query.limit) || 6;
-        const skip = (page-1)*limit;
-
-        const categoryName = req.query.category || '';
-        const minPrice = parseFloat(req.query.minPrice) || 0;
-        const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
-        const sortOption = req.query.sort || ''; 
-        const seatCount = parseInt(req.query.seatCount) || null;
-
-        try {
-        const query = {
-                
-                ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-                // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-                price: { $gte: minPrice, $lte: maxPrice },
-                ...(seatCount && { seatCount: { $gte: seatCount } })
-              };
-              let sort = {};
-              if (sortOption === 'price-asc') {
-                  sort = { price: 1 }; // Sort by price ascending
-              } else if (sortOption === 'price-desc') {
-                  sort = { price: -1 }; // Sort by price descending
-              } else if (sortOption === 'date-desc') {
-                sort = { date: -1 }; // Sort by date descending (newest first)
-            } else if (sortOption === 'date-asc') {
-                sort = { date: 1 };}
-      
-         // Fetch total cars count without pagination
-         const totalCars = await carsCollection.countDocuments();
-            console.log("totalcars:",totalCars)
-
-        // Fetch cars with pagination
-        
-        const Cars = await carsCollection.find(query).sort(sort).skip(skip).limit(limit).toArray();
-          // Calculate total pages
-          const totalPages = Math.ceil(totalCars / limit);
-      
-          // Send the paginated data along with totalPages and totalCars
-          console.log("Incoming query parameters:", req.query);
-       
-          res.json({ Cars,totalCars, totalPages, totalCars, currentPage: page });
-        } catch (error) {
-          res.status(500).json({ message: 'Server error', error });
+    app.get("/SearchCars", async (req, res) => {
+      const { lng, lat, maxDistance, location } = req.query;
+      console.log("Received query parameters:", { lng, lat, maxDistance, location });
+    
+      try {
+        let query = {};
+    
+        if (location === "current" && lng && lat) {
+          const coordinates = [parseFloat(lng), parseFloat(lat)]; // এখানে নিশ্চিত হচ্ছি যে লং এবং ল্যাট সঠিক ফরম্যাটে আছে
+          query.location = {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: coordinates,
+              },
+              $maxDistance: parseInt(maxDistance) || 5000,
+            },
+          };
+          console.log("Coordinates for search:", coordinates); // এখানে প্রিন্ট করছি coordinates
+        } else if (location === "anywhere") {
+          query = {}; // সমস্ত গাড়ি দেখাবে
         }
-    })
+        console.log("SEARCHQUERY:", JSON.stringify(query, null, 2)); // SEARCHQUERY সম্পূর্ণ দেখানোর জন্য
+    
+        const cars = await carsCollection.find(query).toArray();
+        res.json(cars);
+        console.log('carsforlocation:', cars.length);
+      } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+      }
+    });
+    
+    
+    
+    
+app.get("/cars", async (req, res) => {
+  const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
+  const limit = parseInt(req.query.limit) || 6;
+  const skip = (page - 1) * limit;
 
+  const categoryName = req.query.category || "";
+  const minPrice = parseFloat(req.query.minPrice) || 0;
+  const maxPrice =
+    parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+  const sortOption = req.query.sort || "";
+  const seatCount = parseInt(req.query.seatCount) || null;
+
+  try {
+    const query = {
+      ...(categoryName && {
+        category: { $regex: categoryName, $options: "i" },
+      }),
+      // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+      price: { $gte: minPrice, $lte: maxPrice },
+      ...(seatCount && { seatCount: { $gte: seatCount } }),
+    };
+    let sort = {};
+    if (sortOption === "price-asc") {
+      sort = { price: 1 }; // Sort by price ascending
+    } else if (sortOption === "price-desc") {
+      sort = { price: -1 }; // Sort by price descending
+    } else if (sortOption === "date-desc") {
+      sort = { date: -1 }; // Sort by date descending (newest first)
+    } else if (sortOption === "date-asc") {
+      sort = { date: 1 };
+    }
+
+    // Fetch total cars count without pagination
+    const totalCars = await carsCollection.countDocuments();
+    // console.log("totalcars:", totalCars);
+
+    // Fetch cars with pagination
+
+    const Cars = await carsCollection
+      .find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+    // Calculate total pages
+    const totalPages = Math.ceil(totalCars / limit);
+
+    // Send the paginated data along with totalPages and totalCars
+    // console.log("Incoming query parameters:", req.query);
+
+    res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+});
+
+
+    app.get('/cars/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const car = await carsCollection.findOne(query);
+      res.json(car);
+    });
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
