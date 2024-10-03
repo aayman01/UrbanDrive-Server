@@ -37,7 +37,6 @@ async function run() {
      
     app.get("/SearchCars", async (req, res) => {
       const { lng, lat, maxDistance, location } = req.query;
-      console.log("Received query parameters:", { lng, lat, maxDistance, location });
     
       try {
         let query = {};
@@ -53,11 +52,11 @@ async function run() {
               $maxDistance: parseInt(maxDistance) || 5000,
             },
           };
-          console.log("Coordinates for search:", coordinates); // এখানে প্রিন্ট করছি coordinates
+          console.log("Coordinates for search:", coordinates); 
         } else if (location === "anywhere") {
-          query = {}; // সমস্ত গাড়ি দেখাবে
+          query = {}; 
         }
-        console.log("SEARCHQUERY:", JSON.stringify(query, null, 2)); // SEARCHQUERY সম্পূর্ণ দেখানোর জন্য
+       
     
         const cars = await carsCollection.find(query).toArray();
         res.json(cars);
