@@ -27,8 +27,8 @@ const client = new MongoClient(uri, {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   host: 'smtp.gmail.com',
-  port: 587, // or 465 for SSL
-  secure: false, // true for 465, false for other ports
+  port: 587, 
+  secure: false, 
   auth: {
       user: process.env.EMAIL_USER, // email address
       pass: process.env.EMAIL_PASS, // email password
@@ -143,22 +143,96 @@ async function run() {
 
     // bookings
     app.post("/bookings", async (req, res) => {
-      try{
+      try {
         const bookingData = req.body;
         const result = await bookingsCollection.insertOne(bookingData);
-        res.send({success: true, bookingId: result.insertedId});
-      }catch(error){
+        res.send({ success: true, bookingId: result.insertedId });
+      } catch (error) {
         console.error("Error creating booking:", error);
         res.status(500).send({ success: false, error: "Failed to create booking" });
       }
-    })
-
+    });
     app.get("/bookings", async (req, res) => {
-      const email = req.query.email;
-      const query = { email: email };
-      const bookings = await bookingsCollection.find(query).toArray();
-      res.send(bookings);
+      try {
+        const bookings = await bookingsCollection.find({}).toArray();
+        res.send(bookings);
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
+        res.status(500).send({ success: false, error: "Failed to fetch bookings" });
+      }
     })
+    // get booking
+    app.get("/bookings/:bookingId", async (req, res) => {
+      try {
+        const bookingId = req.params.bookingId;
+        
+        // Validate bookingId format
+        if (!ObjectId.isValid(bookingId)) {
+          return res.status(400).send({ success: false, message: "Invalid booking ID format" });
+        }
+
+        const booking = await bookingsCollection.findOne({ _id: new ObjectId(bookingId) });
+        if (booking) {
+          res.send(booking);
+        } else {
+          res.status(404).send({ success: false, message: "Booking not found" });
+        }
+      } catch (error) {
+        console.error("Error fetching booking:", error);
+        res.status(500).send({ success: false, error: "Failed to fetch booking" });
+      }
+    });
+
+    // Update a booking
+    app.put("/bookings/:bookingId", async (req, res) => {
+      try {
+        const bookingId = req.params.bookingId;
+
+        // Validate bookingId format
+        if (!ObjectId.isValid(bookingId)) {
+          return res.status(400).send({ success: false, message: "Invalid booking ID format" });
+        }
+
+        const {
+          email,
+          phoneNumber,
+          paymentMethod
+        } = req.body; 
+        console.log(email, phoneNumber, paymentMethod);
+        console.log("Request body:", req.body);
+        if (!email || !phoneNumber || !paymentMethod) {
+          return res.status(400).send({ success: false, message: "Required fields missing." });
+        }
+
+        // Handle file upload for driver's license
+        let driversLicenseUrl = '';
+        if (req.files && req.files.driversLicense) {
+          // Assuming you have a function to handle file upload and return the URL
+          driversLicenseUrl = await uploadFile(req.files.driversLicense);
+        }
+
+        const updatedBooking = {
+          email,
+          phoneNumber,
+          driversLicense: driversLicenseUrl,
+          paymentMethod
+        };
+
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(bookingId) },
+          { $set: updatedBooking }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ success: false, message: "Booking not found" });
+        }
+
+        res.send({ success: true, message: "Booking updated successfully" });
+      } catch (error) {
+        console.error("Error updating booking:", error);
+        res.status(500).send({ success: false, error: "Failed to update booking" });
+      }
+    });
 
 
     //  API to send verification code
@@ -177,7 +251,7 @@ async function run() {
     
       // Send the verification code to the user's email
       const mailOptions = {
-        from: 'UrbanDrive',
+        from: `UrbanDrive <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Your Email Verification Code',
         text: `Your verification code is: ${verificationCode}`,
@@ -198,12 +272,12 @@ async function run() {
     app.post('/verify-code', async (req, res) => {
       const { email, code } = req.body;
     
-      // Fetch the user from the database
+      
       const user = await usersCollection.findOne({ email });
     
-      // Check if the code matches and is not expired
+      
       if (user && user.verificationCode === code && user.verificationCodeExpires > Date.now()) {
-        // If the code is correct, remove the verificationCode fields and mark email as verified
+        
         await usersCollection.updateOne(
           { email },
           { $unset: { verificationCode: "", verificationCodeExpires: "" }, $set: { isEmailVerified: true } }
