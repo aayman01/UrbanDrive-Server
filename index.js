@@ -125,11 +125,7 @@ async function run() {
 
       res.send(result)
     })
-    // get all payment history
-    // app.get('/history', async (req, res) => {
-    //   const result = await paymentHistoryCollection.find().toArray();
-    //   res.send(result)
-    // })
+    
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
