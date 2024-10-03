@@ -188,7 +188,7 @@ async function run() {
       try {
         const bookingId = req.params.bookingId;
 
-        // Validate bookingId format
+       
         if (!ObjectId.isValid(bookingId)) {
           return res.status(400).send({ success: false, message: "Invalid booking ID format" });
         }
@@ -204,10 +204,10 @@ async function run() {
           return res.status(400).send({ success: false, message: "Required fields missing." });
         }
 
-        // Handle file upload for driver's license
+        
         let driversLicenseUrl = '';
         if (req.files && req.files.driversLicense) {
-          // Assuming you have a function to handle file upload and return the URL
+          
           driversLicenseUrl = await uploadFile(req.files.driversLicense);
         }
 
