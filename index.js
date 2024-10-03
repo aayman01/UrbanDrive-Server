@@ -30,6 +30,7 @@ async function run() {
 
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
+    const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -109,7 +110,7 @@ async function run() {
       const { client_secret } = await stripe.paymentIntents.create({
         amount: priceCent,
         currency: "usd",
-       
+
         automatic_payment_methods: {
           enabled: true,
         },
@@ -117,7 +118,25 @@ async function run() {
       // and client secret as response
       res.send({ clientSecret: client_secret });
     });
+    // payment history
+    app.post('/payment', async (req, res) => {
+      const paymentHistory = req.body;
+      const result = await paymentHistoryCollection.insertOne(paymentHistory);
 
+      res.send(result)
+    })
+    // get all payment history
+    // app.get('/history', async (req, res) => {
+    //   const result = await paymentHistoryCollection.find().toArray();
+    //   res.send(result)
+    // })
+    // get payment history email
+    app.get("/myHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentHistoryCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
