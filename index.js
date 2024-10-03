@@ -103,6 +103,37 @@ async function run() {
       }
     });
 
+    app.get("/SearchCars", async (req, res) => {
+      const { lng, lat, maxDistance, location } = req.query;
+    
+      try {
+        let query = {};
+    
+        if (location === "current" && lng && lat) {
+          const coordinates = [parseFloat(lng), parseFloat(lat)]; // এখানে নিশ্চিত হচ্ছি যে লং এবং ল্যাট সঠিক ফরম্যাটে আছে
+          query.location = {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: coordinates,
+              },
+              $maxDistance: parseInt(maxDistance) || 5000,
+            },
+          };
+          console.log("Coordinates for search:", coordinates); 
+        } else if (location === "anywhere") {
+          query = {}; 
+        }
+       
+    
+        const cars = await carsCollection.find(query).toArray();
+        res.json(cars);
+        
+      } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+      }
+    });
+
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
