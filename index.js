@@ -5,7 +5,7 @@ require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
@@ -25,7 +25,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const usersCollection = client.db("urbanDrive").collection("users");
@@ -109,7 +109,7 @@ async function run() {
       const { client_secret } = await stripe.paymentIntents.create({
         amount: priceCent,
         currency: "usd",
-        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+       
         automatic_payment_methods: {
           enabled: true,
         },
