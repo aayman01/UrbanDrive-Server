@@ -171,6 +171,21 @@ async function run() {
       res.send(result);
     });
 
+    app.patch(
+      "/users/admin/:id",
+      async (req, res) => {
+        const id = req.params.id;
+        const data = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: data.role,
+          },
+        };
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -363,10 +378,10 @@ async function run() {
 
 
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
