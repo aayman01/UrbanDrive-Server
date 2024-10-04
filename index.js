@@ -157,6 +157,20 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const data = req.body;
+      const query = { email: email };
+      const updatedDoc = {
+        $set: {
+          name: data.name,
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
