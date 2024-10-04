@@ -81,7 +81,7 @@ async function run() {
 
         // Fetch total cars count without pagination
         const totalCars = await carsCollection.countDocuments();
-        console.log("totalcars:", totalCars);
+        // console.log("totalcars:", totalCars);
 
         // Fetch cars with pagination
 
@@ -95,7 +95,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        console.log("Incoming query parameters:", req.query);
+        // console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
@@ -110,7 +110,7 @@ async function run() {
         let query = {};
     
         if (location === "current" && lng && lat) {
-          const coordinates = [parseFloat(lng), parseFloat(lat)]; // এখানে নিশ্চিত হচ্ছি যে লং এবং ল্যাট সঠিক ফরম্যাটে আছে
+          const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
             $near: {
               $geometry: {
@@ -143,6 +143,17 @@ async function run() {
         return res.send({ message: "user already exists", insertedId: null });
       }
       const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send(result);
+    });
+
+    app.get("/user", async (req, res) => {
+      const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
@@ -244,8 +255,8 @@ async function run() {
           phoneNumber,
           paymentMethod
         } = req.body; 
-        console.log(email, phoneNumber, paymentMethod);
-        console.log("Request body:", req.body);
+        // console.log(email, phoneNumber, paymentMethod);
+        // console.log("Request body:", req.body);
         if (!email || !phoneNumber || !paymentMethod) {
           return res.status(400).send({ success: false, message: "Required fields missing." });
         }
@@ -285,7 +296,7 @@ async function run() {
     app.post('/send-verification-code', async (req, res) => {
       const  email  = req.body.email;
       const query = { email: email };
-      console.log('email:', email);
+      // console.log('email:', email);
       
       const verificationCode = crypto.randomInt(100000, 999999).toString();
       const user = await usersCollection.findOne({ email });
