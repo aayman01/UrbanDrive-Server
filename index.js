@@ -212,6 +212,12 @@ async function run() {
       res.send(result)
     })
     
+    // get all payment
+    app.get('/paymentHistory',async(req,res)=>{
+      const result = await paymentHistoryCollection.find().toArray();
+      res.send(result);
+    })
+    
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
@@ -378,10 +384,10 @@ async function run() {
 
 
 
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
