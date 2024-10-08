@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -30,8 +30,8 @@ const transporter = nodemailer.createTransport({
   port: 587, 
   secure: false, 
   auth: {
-      user: process.env.EMAIL_USER, // email address
-      pass: process.env.EMAIL_PASS, // email password
+      user: process.env.EMAIL_USER, 
+      pass: process.env.EMAIL_PASS, 
   },
 });
 
@@ -47,6 +47,7 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const memberships = client.db("urbanDrive").collection("memberships");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -58,6 +59,8 @@ async function run() {
       const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
       const sortOption = req.query.sort || "";
       const seatCount = parseInt(req.query.seatCount) || null;
+      const driver = req.query.driver || "";
+      const homePickup = req.query.homePickup || "";
 
       try {
         const query = {
@@ -67,6 +70,12 @@ async function run() {
           // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
           price: { $gte: minPrice, $lte: maxPrice },
           ...(seatCount && { seatCount: { $gte: seatCount } }),
+          ...(driver && {
+            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
+          ...(homePickup && {
+            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
         };
         let sort = {};
         if (sortOption === "price-asc") {
@@ -81,7 +90,7 @@ async function run() {
 
         // Fetch total cars count without pagination
         const totalCars = await carsCollection.countDocuments();
-        console.log("totalcars:", totalCars);
+        // console.log("totalcars:", totalCars);
 
         // Fetch cars with pagination
 
@@ -109,8 +118,8 @@ async function run() {
       try {
         let query = {};
     
-        if (location === "current" && lng && lat) {
-          const coordinates = [parseFloat(lng), parseFloat(lat)]; // এখানে নিশ্চিত হচ্ছি যে লং এবং ল্যাট সঠিক ফরম্যাটে আছে
+        if (location === "current" && lat && Long) {
+          const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
             $near: {
               $geometry: {
@@ -134,6 +143,12 @@ async function run() {
       }
     });
 
+    // get membership data
+    app.get("/memberships",async(req,res)=>{
+      const data = await memberships.find().toArray();
+      res.send(data)
+    })
+
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -146,6 +161,46 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send(result);
+    });
+
+    app.get("/user", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.put("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const data = req.body;
+      const query = { email: email };
+      const updatedDoc = {
+        $set: {
+          name: data.name,
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+    app.patch(
+      "/users/admin/:id",
+      async (req, res) => {
+        const id = req.params.id;
+        const data = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: data.role,
+          },
+        };
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -244,8 +299,8 @@ async function run() {
           phoneNumber,
           paymentMethod
         } = req.body; 
-        console.log(email, phoneNumber, paymentMethod);
-        console.log("Request body:", req.body);
+        // console.log(email, phoneNumber, paymentMethod);
+        // console.log("Request body:", req.body);
         if (!email || !phoneNumber || !paymentMethod) {
           return res.status(400).send({ success: false, message: "Required fields missing." });
         }
@@ -285,7 +340,7 @@ async function run() {
     app.post('/send-verification-code', async (req, res) => {
       const  email  = req.body.email;
       const query = { email: email };
-      console.log('email:', email);
+      // console.log('email:', email);
       
       const verificationCode = crypto.randomInt(100000, 999999).toString();
       const user = await usersCollection.findOne({ email });
@@ -338,10 +393,10 @@ async function run() {
 
 
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
