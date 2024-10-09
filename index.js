@@ -48,6 +48,7 @@ async function run() {
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
+    const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -226,7 +227,29 @@ async function run() {
 
       res.send(result)
     })
+    // Handle membership payment
+    app.post("/membership-payment", async (req, res) => {
+  const { paymentInfo, membershipInfo } = req.body;
+  console.log(req.body)
+
+  try {
+    // Insert payment info into Payment collection
+    const payment = await paymentHistoryCollection.insertOne(paymentInfo);
+    console.log("Payment inserted:", payment);
+    const membershipsinfo = await membershipCollection.insertOne(membershipInfo);
+    console.log("Membership info inserted:", membershipsinfo);
     
+
+    res.status(200).json({
+      message: "Membership and payment info saved successfully",
+      payment,
+      membershipsinfo,
+    })
+  } catch (error) {
+    console.error("Error saving membership/payment info:", error);
+    res.status(500).send("Server error");
+  }
+})
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
@@ -393,7 +416,7 @@ async function run() {
 
 
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     // console.log(
     //   "Pinged your deployment. You successfully connected to MongoDB!"
     // );
