@@ -172,21 +172,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch(
-      "/users/admin/:id",
-      async (req, res) => {
-        const id = req.params.id;
-        const data = req.body;
-        const filter = { _id: new ObjectId(id) };
-        const updatedDoc = {
-          $set: {
-            role: data.role,
-          },
-        };
-        const result = await usersCollection.updateOne(filter, updatedDoc);
-        res.send(result);
-      }
-    );
+    
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -211,6 +197,12 @@ async function run() {
       const result = await paymentHistoryCollection.insertOne(paymentHistory);
 
       res.send(result)
+    })
+    
+    // get all payment
+    app.get('/paymentHistory',async(req,res)=>{
+      const result = await paymentHistoryCollection.find().toArray();
+      res.send(result);
     })
     
     // get payment history email
@@ -398,8 +390,55 @@ async function run() {
     });
     
     
+    // admin api
 
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
+    app.get('/admin-stats',async(req,res) => {
+      const hostCount = await usersCollection.countDocuments({ role: "Host" });
+
+      const passengerCount = await usersCollection.countDocuments({
+         role: { $nin: ["Admin", "Host"] },
+      });
+
+      const carCount = await carsCollection.countDocuments();
+
+      // console.log(hostCount,passengerCount,carCount)
+
+      res.send({hostCount, passengerCount, carCount})
+
+    })
+    // get all car
+    app.get('/totalCars',async(req,res) => {
+      const totalCar = await carsCollection.find().toArray();
+      res.send(totalCar)
+    })
+    // delete specific car
+    app.delete(
+      "/cars/delete/:id",
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await carsCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
+    // get all bookings
+    app.get("/allBookings",async(req,res)=>{
+      const result = await bookingsCollection.find().toArray();
+      res.send(result)
+    });
 
     // await client.db("admin").command({ ping: 1 });
     // console.log(
