@@ -47,6 +47,7 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const hostCarCollection = client.db("urbanDrive").collection("hostCar");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -371,6 +372,28 @@ async function run() {
         res.send({ success: true, message: 'Email verified successfully' });
       } else {
         res.status(400).send({ success: false, message: 'Invalid or expired verification code' });
+      }
+    });
+
+    // host car
+    app.post("/hostCar", async (req, res) => {
+      try {
+        const hostCarData = req.body;
+        const result = await hostCarCollection.insertOne(hostCarData);
+        res.send({ success: true, message: "Car hosted successfully", carId: result.insertedId });
+      } catch (error) {
+        console.error("Error hosting car:", error);
+        res.status(500).send({ success: false, error: "Failed to host car" });
+      }
+    });
+    // get host car
+    app.get("/hostCar", async (req, res) => {
+      try {
+        const hostCar = await hostCarCollection.find({}).toArray();
+        res.send(hostCar);
+      } catch (error) {
+        console.error("Error fetching host cars:", error);
+        res.status(500).send({ success: false, error: "Failed to fetch host cars" });
       }
     });
     
