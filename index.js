@@ -49,6 +49,7 @@ async function run() {
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
+    const hostCarCollection = client.db("urbanDrive").collection("hostCar");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -187,21 +188,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch(
-      "/users/admin/:id",
-      async (req, res) => {
-        const id = req.params.id;
-        const data = req.body;
-        const filter = { _id: new ObjectId(id) };
-        const updatedDoc = {
-          $set: {
-            role: data.role,
-          },
-        };
-        const result = await usersCollection.updateOne(filter, updatedDoc);
-        res.send(result);
-      }
-    );
+    
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -250,6 +237,12 @@ async function run() {
     res.status(500).send("Server error");
   }
 })
+    // get all payment
+    app.get('/paymentHistory',async(req,res)=>{
+      const result = await paymentHistoryCollection.find().toArray();
+      res.send(result);
+    })
+    
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
@@ -411,10 +404,79 @@ async function run() {
         res.status(400).send({ success: false, message: 'Invalid or expired verification code' });
       }
     });
+
+    // host car
+    app.post("/hostCar", async (req, res) => {
+      try {
+        const hostCarData = req.body;
+        const result = await hostCarCollection.insertOne(hostCarData);
+        res.send({ success: true, message: "Car hosted successfully", carId: result.insertedId });
+      } catch (error) {
+        console.error("Error hosting car:", error);
+        res.status(500).send({ success: false, error: "Failed to host car" });
+      }
+    });
+    // get host car
+    app.get("/hostCar", async (req, res) => {
+      try {
+        const hostCar = await hostCarCollection.find({}).toArray();
+        res.send(hostCar);
+      } catch (error) {
+        console.error("Error fetching host cars:", error);
+        res.status(500).send({ success: false, error: "Failed to fetch host cars" });
+      }
+    });
     
     
+    // admin api
 
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
+    app.get('/admin-stats',async(req,res) => {
+      const hostCount = await usersCollection.countDocuments({ role: "Host" });
+
+      const passengerCount = await usersCollection.countDocuments({
+         role: { $nin: ["Admin", "Host"] },
+      });
+
+      const carCount = await carsCollection.countDocuments();
+
+      // console.log(hostCount,passengerCount,carCount)
+
+      res.send({hostCount, passengerCount, carCount})
+
+    })
+    // get all car
+    app.get('/totalCars',async(req,res) => {
+      const totalCar = await carsCollection.find().toArray();
+      res.send(totalCar)
+    })
+    // delete specific car
+    app.delete(
+      "/cars/delete/:id",
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await carsCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
+    // get all bookings
+    app.get("/allBookings",async(req,res)=>{
+      const result = await bookingsCollection.find().toArray();
+      res.send(result)
+    });
 
     await client.db("admin").command({ ping: 1 });
     // console.log(
