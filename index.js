@@ -4,10 +4,10 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
@@ -47,6 +47,8 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const memberships = client.db("urbanDrive").collection("memberships");
+    const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
 
     app.get("/cars", async (req, res) => {
@@ -59,6 +61,8 @@ async function run() {
       const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
       const sortOption = req.query.sort || "";
       const seatCount = parseInt(req.query.seatCount) || null;
+      const driver = req.query.driver || "";
+      const homePickup = req.query.homePickup || "";
 
       try {
         const query = {
@@ -68,6 +72,12 @@ async function run() {
           // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
           price: { $gte: minPrice, $lte: maxPrice },
           ...(seatCount && { seatCount: { $gte: seatCount } }),
+          ...(driver && {
+            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
+          ...(homePickup && {
+            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
         };
         let sort = {};
         if (sortOption === "price-asc") {
@@ -96,7 +106,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        // console.log("Incoming query parameters:", req.query);
+        console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
@@ -110,7 +120,7 @@ async function run() {
       try {
         let query = {};
     
-        if (location === "current" && lng && lat) {
+        if (location === "current" && lat && Long) {
           const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
             $near: {
@@ -134,6 +144,12 @@ async function run() {
         res.status(500).json({ message: "Server error", error });
       }
     });
+
+    // get membership data
+    app.get("/memberships",async(req,res)=>{
+      const data = await memberships.find().toArray();
+      res.send(data)
+    })
 
     // user related api
     app.post("/users", async (req, res) => {
@@ -198,7 +214,29 @@ async function run() {
 
       res.send(result)
     })
+    // Handle membership payment
+    app.post("/membership-payment", async (req, res) => {
+  const { paymentInfo, membershipInfo } = req.body;
+  console.log(req.body)
+
+  try {
+    // Insert payment info into Payment collection
+    const payment = await paymentHistoryCollection.insertOne(paymentInfo);
+    console.log("Payment inserted:", payment);
+    const membershipsinfo = await membershipCollection.insertOne(membershipInfo);
+    console.log("Membership info inserted:", membershipsinfo);
     
+
+    res.status(200).json({
+      message: "Membership and payment info saved successfully",
+      payment,
+      membershipsinfo,
+    })
+  } catch (error) {
+    console.error("Error saving membership/payment info:", error);
+    res.status(500).send("Server error");
+  }
+})
     // get all payment
     app.get('/paymentHistory',async(req,res)=>{
       const result = await paymentHistoryCollection.find().toArray();
@@ -440,7 +478,7 @@ async function run() {
       res.send(result)
     });
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     // console.log(
     //   "Pinged your deployment. You successfully connected to MongoDB!"
     // );
