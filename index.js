@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 8000;
@@ -54,7 +54,6 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
-    const paymentSuccess = client.db("urbanDrive").collection("payment");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -66,6 +65,8 @@ async function run() {
       const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
       const sortOption = req.query.sort || "";
       const seatCount = parseInt(req.query.seatCount) || null;
+      const driver = req.query.driver || "";
+      const homePickup = req.query.homePickup || "";
 
       try {
         const query = {
@@ -75,6 +76,12 @@ async function run() {
           // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
           price: { $gte: minPrice, $lte: maxPrice },
           ...(seatCount && { seatCount: { $gte: seatCount } }),
+          ...(driver && {
+            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
+          ...(homePickup && {
+            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
         };
         let sort = {};
         if (sortOption === "price-asc") {
@@ -103,7 +110,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        // console.log("Incoming query parameters:", req.query);
+        console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
@@ -142,6 +149,12 @@ async function run() {
       }
     });
 
+    // get membership data
+    app.get("/memberships", async (req, res) => {
+      const data = await memberships.find().toArray();
+      res.send(data)
+    })
+
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -179,21 +192,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch(
-      "/users/admin/:id",
-      async (req, res) => {
-        const id = req.params.id;
-        const data = req.body;
-        const filter = { _id: new ObjectId(id) };
-        const updatedDoc = {
-          $set: {
-            role: data.role,
-          },
-        };
-        const result = await usersCollection.updateOne(filter, updatedDoc);
-        res.send(result);
-      }
-    );
+
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -219,11 +218,7 @@ async function run() {
 
       res.send(result)
     })
-    // payment all history
-    app.get('/paymentHistory', async (req, res) => {
-      const result = await paymentHistoryCollection.find().toArray()
-      res.send(result)
-    })
+
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
