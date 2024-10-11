@@ -54,6 +54,12 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const memberships = client.db("urbanDrive").collection("memberships");
+    const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
+    const hostCarCollection = client.db("urbanDrive").collection("hostCar");
+    // ssl commarze
+    const paymentSuccess = client.db("urbanDrive").collection("payment");
+
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
