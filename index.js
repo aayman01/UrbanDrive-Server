@@ -9,9 +9,13 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-app.use(cors());
+const SSLCommerzPayment = require('sslcommerz-lts');
+const { default: axios } = require("axios");
 
 app.use(express.json());
+app.use(express.urlencoded());
+app.use(cors());
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -27,14 +31,17 @@ const client = new MongoClient(uri, {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   host: 'smtp.gmail.com',
-  port: 587, 
-  secure: false, 
+  port: 587,
+  secure: false,
   auth: {
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS, 
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASS;
+const is_live = false //true for live, false for sandbox
 
 
 async function run() {
@@ -47,6 +54,7 @@ async function run() {
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const paymentSuccess = client.db("urbanDrive").collection("payment");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -105,10 +113,10 @@ async function run() {
 
     app.get("/SearchCars", async (req, res) => {
       const { lng, lat, maxDistance, location } = req.query;
-    
+
       try {
         let query = {};
-    
+
         if (location === "current" && lng && lat) {
           const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
@@ -120,15 +128,15 @@ async function run() {
               $maxDistance: parseInt(maxDistance) || 5000,
             },
           };
-          console.log("Coordinates for search:", coordinates); 
+          console.log("Coordinates for search:", coordinates);
         } else if (location === "anywhere") {
-          query = {}; 
+          query = {};
         }
-       
-    
+
+
         const cars = await carsCollection.find(query).toArray();
         res.json(cars);
-        
+
       } catch (error) {
         res.status(500).json({ message: "Server error", error });
       }
@@ -211,7 +219,11 @@ async function run() {
 
       res.send(result)
     })
-    
+    // payment all history
+    app.get('/paymentHistory', async (req, res) => {
+      const result = await paymentHistoryCollection.find().toArray()
+      res.send(result)
+    })
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
@@ -219,6 +231,92 @@ async function run() {
       const result = await paymentHistoryCollection.find(query).toArray();
       res.send(result);
     });
+
+
+    //1.init payment
+    //2.post Request---url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+    // sslCommarze create payment-------------------------------
+    app.post("/create-payment", async (req, res) => {
+      const paymentInfo = req.body;
+
+      const trxId = new ObjectId().toString();
+      const intentData = {
+        store_id,
+        store_passwd,
+        total_amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        tran_id: trxId,
+        success_url: "http://localhost:8000/success-payment",
+        fail_url: "http://localhost:8000/fail",
+        cancel_url: "http://localhost:8000/cancel",
+        emi_option: 0,
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        cus_add1: "Address Line 1",
+        cus_city: "City",
+        cus_postcode: "1234",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        shipping_method: "NO",
+        product_name: paymentInfo?.productName || "Car",
+        product_category: "General",
+        product_profile: "general",
+      };
+
+      const response = await axios({
+        method: "POST",
+        url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+        data: intentData,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+      // console.log(response);
+      // save data in database
+      const saveData = {
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        product_name: paymentInfo?.productName || "Car",
+        amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        paymentId: trxId,
+        status: "Pending"
+      }
+      const result = await paymentSuccess.insertOne(saveData)
+      if (result) {
+        res.send({
+          paymentUrl: response.data.GatewayPageURL,
+        });
+      }
+
+
+    })
+
+    app.post("/success-payment", async (req, res) => {
+      const successData = req.body;
+      if (successData.status !== "VALID") {
+        throw new Error("unauthorize payment , invalid payment")
+      }
+
+      // update the database
+      const query = {
+        paymentId: successData.tran_id
+      }
+      const update = {
+        $set: {
+          status: "Success",
+        }
+      }
+      const updateData = await paymentSuccess.updateOne(query, update)
+      console.log(successData, "success data");
+      console.log(updateData, "update data");
+    })
+
+    // get paymentSuccess data
+    app.get('/payment-data', async (req, res) => {
+      const result = await paymentSuccess.find().toArray()
+      res.send(result)
+    })
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
@@ -251,7 +349,7 @@ async function run() {
     app.get("/bookings/:bookingId", async (req, res) => {
       try {
         const bookingId = req.params.bookingId;
-        
+
         // Validate bookingId format
         if (!ObjectId.isValid(bookingId)) {
           return res.status(400).send({ success: false, message: "Invalid booking ID format" });
@@ -274,7 +372,7 @@ async function run() {
       try {
         const bookingId = req.params.bookingId;
 
-       
+
         if (!ObjectId.isValid(bookingId)) {
           return res.status(400).send({ success: false, message: "Invalid booking ID format" });
         }
@@ -283,17 +381,17 @@ async function run() {
           email,
           phoneNumber,
           paymentMethod
-        } = req.body; 
+        } = req.body;
         // console.log(email, phoneNumber, paymentMethod);
         // console.log("Request body:", req.body);
         if (!email || !phoneNumber || !paymentMethod) {
           return res.status(400).send({ success: false, message: "Required fields missing." });
         }
 
-        
+
         let driversLicenseUrl = '';
         if (req.files && req.files.driversLicense) {
-          
+
           driversLicenseUrl = await uploadFile(req.files.driversLicense);
         }
 
@@ -323,10 +421,10 @@ async function run() {
 
     //  API to send verification code
     app.post('/send-verification-code', async (req, res) => {
-      const  email  = req.body.email;
+      const email = req.body.email;
       const query = { email: email };
       // console.log('email:', email);
-      
+
       const verificationCode = crypto.randomInt(100000, 999999).toString();
       const user = await usersCollection.findOne({ email });
       if (user) {
@@ -334,7 +432,7 @@ async function run() {
       } else {
         await usersCollection.insertOne({ email, verificationCode, verificationCodeExpires: Date.now() + 3600000 });
       }
-    
+
       // Send the verification code to the user's email
       const mailOptions = {
         from: `UrbanDrive <${process.env.EMAIL_USER}>`,
@@ -342,7 +440,7 @@ async function run() {
         subject: 'Your Email Verification Code',
         text: `Your verification code is: ${verificationCode}`,
       };
-    
+
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
           console.error('Error sending verification email:', error);
@@ -357,13 +455,13 @@ async function run() {
     // API to Verify Code
     app.post('/verify-code', async (req, res) => {
       const { email, code } = req.body;
-    
-      
+
+
       const user = await usersCollection.findOne({ email });
-    
-      
+
+
       if (user && user.verificationCode === code && user.verificationCodeExpires > Date.now()) {
-        
+
         await usersCollection.updateOne(
           { email },
           { $unset: { verificationCode: "", verificationCodeExpires: "" }, $set: { isEmailVerified: true } }
@@ -373,8 +471,8 @@ async function run() {
         res.status(400).send({ success: false, message: 'Invalid or expired verification code' });
       }
     });
-    
-    
+
+
 
 
 
