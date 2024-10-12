@@ -9,9 +9,13 @@ const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-app.use(cors());
+const SSLCommerzPayment = require('sslcommerz-lts');
+const { default: axios } = require("axios");
 
 app.use(express.json());
+app.use(express.urlencoded());
+app.use(cors());
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -25,6 +29,8 @@ const client = new MongoClient(uri, {
 });
 // nodemailer
 const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  host: 'smtp.gmail.com',
   service: "gmail",
   host: "smtp.gmail.com",
   port: 587,
@@ -34,6 +40,11 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASS;
+const is_live = false //true for live, false for sandbox
+
 
 async function run() {
   try {
@@ -48,6 +59,9 @@ async function run() {
       .db("urbanDrive")
       .collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
+    // ssl commarze
+    const paymentSuccess = client.db("urbanDrive").collection("payment");
+
     const membershipCollection = client
       .db("urbanDrive")
       .collection("membershipsInfo");
@@ -251,6 +265,111 @@ async function run() {
       const result = await paymentHistoryCollection.find(query).toArray();
       res.send(result);
     });
+
+    // -----------------------ssl commarze start----------------
+    //1.init payment
+    //2.post Request---url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+    // 3. save data in database
+    // 4. if payment success and then update database
+    // 5. if payment is not success and fail
+    // sslCommarze create payment-------------------------------
+    app.post("/create-payment", async (req, res) => {
+      const paymentInfo = req.body;
+      const trxId = new ObjectId().toString();
+      const intentData = {
+        store_id,
+        store_passwd,
+        total_amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        tran_id: trxId,
+        success_url: "http://localhost:8000/success-payment",
+        fail_url: "http://localhost:8000/fail",
+        cancel_url: "http://localhost:8000/cancel",
+        emi_option: 0,
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        cus_add1: "Address Line 1",
+        cus_city: "City",
+        cus_postcode: "1234",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        shipping_method: "NO",
+        product_name: paymentInfo?.productName || "Car",
+        product_category: "General",
+        product_profile: "general",
+      };
+
+      const response = await axios({
+        method: "POST",
+        url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+        data: intentData,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+      // console.log(response);
+      // save data in database
+      const saveData = {
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        product_name: paymentInfo?.productName || "Car",
+        amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        paymentId: trxId,
+        status: "Pending"
+      }
+      const result = await paymentSuccess.insertOne(saveData)
+      if (result) {
+        res.send({
+          paymentUrl: response.data.GatewayPageURL,
+        });
+      }
+    })
+    // success-payment
+    app.post("/success-payment", async (req, res) => {
+      const successData = req.body;
+      if (successData.status !== "VALID") {
+        throw new Error("unauthorize payment , invalid payment")
+      }
+      // update the database
+      const query = {
+        paymentId: successData.tran_id
+      }
+      const update = {
+        $set: {
+          status: "Success",
+          tran_date: successData.tran_date,
+          card_type: successData.card_type,
+        }
+      }
+      const updateData = await paymentSuccess.updateOne(query, update)
+      console.log(updateData);
+      res.redirect("http://localhost:5173/success")
+    })
+    // fail-payment
+    app.post("/fail", async (req, res) => {
+      res.redirect("http://localhost:5173/fail")
+    })
+    // cancel-payment
+    app.post("/cancel", async (req, res) => {
+      res.redirect("http://localhost:5173/cancel")
+    })
+
+
+    // get paymentSuccess data
+    app.get('/payment-data', async (req, res) => {
+      const result = await paymentSuccess.find().toArray()
+      res.send(result)
+    })
+
+    // get payment history email
+    app.get("/myPaymentHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentSuccess.find(query).toArray();
+      res.send(result);
+    });
+    // -----------------------ssl commarze end----------------
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
@@ -473,20 +592,6 @@ async function run() {
     });
 
     // admin api
-
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const data = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: data.role,
-        },
-      };
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
-
     app.get("/admin-stats", async (req, res) => {
       const hostCount = await usersCollection.countDocuments({ role: "Host" });
 
@@ -529,7 +634,7 @@ async function run() {
     });
 
     // get membership
-    app.get('/all-membership',async(req,res) =>{
+    app.get('/all-membership', async (req, res) => {
       const result = await membershipCollection.find().toArray();
       res.send(result)
     })
