@@ -2,8 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
@@ -31,6 +31,8 @@ const client = new MongoClient(uri, {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   host: 'smtp.gmail.com',
+  service: "gmail",
+  host: "smtp.gmail.com",
   port: 587,
   secure: false,
   auth: {
@@ -53,11 +55,17 @@ async function run() {
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
-    const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const paymentHistoryCollection = client
+      .db("urbanDrive")
+      .collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     // ssl commarze
     const paymentSuccess = client.db("urbanDrive").collection("payment");
 
+    const membershipCollection = client
+      .db("urbanDrive")
+      .collection("membershipsInfo");
+    const hostCarCollection = client.db("urbanDrive").collection("hostCar");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -66,7 +74,8 @@ async function run() {
 
       const categoryName = req.query.category || "";
       const minPrice = parseFloat(req.query.minPrice) || 0;
-      const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+      const maxPrice =
+        parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
       const sortOption = req.query.sort || "";
       const seatCount = parseInt(req.query.seatCount) || null;
       const driver = req.query.driver || "";
@@ -114,7 +123,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        console.log("Incoming query parameters:", req.query);
+        // console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
@@ -128,7 +137,7 @@ async function run() {
       try {
         let query = {};
 
-        if (location === "current" && lng && lat) {
+        if (location === "current" && lat && Long) {
           const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
             $near: {
@@ -144,10 +153,8 @@ async function run() {
           query = {};
         }
 
-
         const cars = await carsCollection.find(query).toArray();
         res.json(cars);
-
       } catch (error) {
         res.status(500).json({ message: "Server error", error });
       }
@@ -156,8 +163,8 @@ async function run() {
     // get membership data
     app.get("/memberships", async (req, res) => {
       const data = await memberships.find().toArray();
-      res.send(data)
-    })
+      res.send(data);
+    });
 
     // user related api
     app.post("/users", async (req, res) => {
@@ -196,7 +203,6 @@ async function run() {
       res.send(result);
     });
 
-
     // payment----------create-payment-intent------
     app.post("/create-payment-intent", async (req, res) => {
       const price = req.body.price;
@@ -216,12 +222,41 @@ async function run() {
       res.send({ clientSecret: client_secret });
     });
     // payment history
-    app.post('/payment', async (req, res) => {
+    app.post("/payment", async (req, res) => {
       const paymentHistory = req.body;
       const result = await paymentHistoryCollection.insertOne(paymentHistory);
 
-      res.send(result)
-    })
+      res.send(result);
+    });
+    // Handle membership payment
+    app.post("/membership-payment", async (req, res) => {
+      const { paymentInfo, membershipInfo } = req.body;
+      // console.log(req.body)
+
+      try {
+        // Insert payment info into Payment collection
+        const payment = await paymentHistoryCollection.insertOne(paymentInfo);
+        // console.log("Payment inserted:", payment);
+        const membershipsinfo = await membershipCollection.insertOne(
+          membershipInfo
+        );
+        // console.log("Membership info inserted:", membershipsinfo);
+
+        res.status(200).json({
+          message: "Membership and payment info saved successfully",
+          payment,
+          membershipsinfo,
+        });
+      } catch (error) {
+        console.error("Error saving membership/payment info:", error);
+        res.status(500).send("Server error");
+      }
+    });
+    // get all payment
+    app.get("/paymentHistory", async (req, res) => {
+      const result = await paymentHistoryCollection.find().toArray();
+      res.send(result);
+    });
 
     // get payment history email
     app.get("/myHistory/:email", async (req, res) => {
@@ -231,7 +266,7 @@ async function run() {
       res.send(result);
     });
 
-// -----------------------ssl commarze start----------------
+    // -----------------------ssl commarze start----------------
     //1.init payment
     //2.post Request---url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
     // 3. save data in database
@@ -326,7 +361,15 @@ async function run() {
       const result = await paymentSuccess.find().toArray()
       res.send(result)
     })
-// -----------------------ssl commarze end----------------
+
+    // get payment history email
+    app.get("/myPaymentHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentSuccess.find(query).toArray();
+      res.send(result);
+    });
+    // -----------------------ssl commarze end----------------
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
@@ -343,7 +386,9 @@ async function run() {
         res.send({ success: true, bookingId: result.insertedId });
       } catch (error) {
         console.error("Error creating booking:", error);
-        res.status(500).send({ success: false, error: "Failed to create booking" });
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to create booking" });
       }
     });
     app.get("/bookings", async (req, res) => {
@@ -352,9 +397,11 @@ async function run() {
         res.send(bookings);
       } catch (error) {
         console.error("Error fetching bookings:", error);
-        res.status(500).send({ success: false, error: "Failed to fetch bookings" });
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to fetch bookings" });
       }
-    })
+    });
     // get booking
     app.get("/bookings/:bookingId", async (req, res) => {
       try {
@@ -362,18 +409,26 @@ async function run() {
 
         // Validate bookingId format
         if (!ObjectId.isValid(bookingId)) {
-          return res.status(400).send({ success: false, message: "Invalid booking ID format" });
+          return res
+            .status(400)
+            .send({ success: false, message: "Invalid booking ID format" });
         }
 
-        const booking = await bookingsCollection.findOne({ _id: new ObjectId(bookingId) });
+        const booking = await bookingsCollection.findOne({
+          _id: new ObjectId(bookingId),
+        });
         if (booking) {
           res.send(booking);
         } else {
-          res.status(404).send({ success: false, message: "Booking not found" });
+          res
+            .status(404)
+            .send({ success: false, message: "Booking not found" });
         }
       } catch (error) {
         console.error("Error fetching booking:", error);
-        res.status(500).send({ success: false, error: "Failed to fetch booking" });
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to fetch booking" });
       }
     });
 
@@ -382,26 +437,23 @@ async function run() {
       try {
         const bookingId = req.params.bookingId;
 
-
         if (!ObjectId.isValid(bookingId)) {
-          return res.status(400).send({ success: false, message: "Invalid booking ID format" });
+          return res
+            .status(400)
+            .send({ success: false, message: "Invalid booking ID format" });
         }
 
-        const {
-          email,
-          phoneNumber,
-          paymentMethod
-        } = req.body;
+        const { email, phoneNumber, paymentMethod } = req.body;
         // console.log(email, phoneNumber, paymentMethod);
         // console.log("Request body:", req.body);
         if (!email || !phoneNumber || !paymentMethod) {
-          return res.status(400).send({ success: false, message: "Required fields missing." });
+          return res
+            .status(400)
+            .send({ success: false, message: "Required fields missing." });
         }
 
-
-        let driversLicenseUrl = '';
+        let driversLicenseUrl = "";
         if (req.files && req.files.driversLicense) {
-
           driversLicenseUrl = await uploadFile(req.files.driversLicense);
         }
 
@@ -409,7 +461,7 @@ async function run() {
           email,
           phoneNumber,
           driversLicense: driversLicenseUrl,
-          paymentMethod
+          paymentMethod,
         };
 
         const result = await bookingsCollection.updateOne(
@@ -418,19 +470,22 @@ async function run() {
         );
 
         if (result.matchedCount === 0) {
-          return res.status(404).send({ success: false, message: "Booking not found" });
+          return res
+            .status(404)
+            .send({ success: false, message: "Booking not found" });
         }
 
         res.send({ success: true, message: "Booking updated successfully" });
       } catch (error) {
         console.error("Error updating booking:", error);
-        res.status(500).send({ success: false, error: "Failed to update booking" });
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to update booking" });
       }
     });
 
-
     //  API to send verification code
-    app.post('/send-verification-code', async (req, res) => {
+    app.post("/send-verification-code", async (req, res) => {
       const email = req.body.email;
       const query = { email: email };
       // console.log('email:', email);
@@ -438,53 +493,151 @@ async function run() {
       const verificationCode = crypto.randomInt(100000, 999999).toString();
       const user = await usersCollection.findOne({ email });
       if (user) {
-        await usersCollection.updateOne({ email }, { $set: { verificationCode, verificationCodeExpires: Date.now() + 3600000 } });
+        await usersCollection.updateOne(
+          { email },
+          {
+            $set: {
+              verificationCode,
+              verificationCodeExpires: Date.now() + 3600000,
+            },
+          }
+        );
       } else {
-        await usersCollection.insertOne({ email, verificationCode, verificationCodeExpires: Date.now() + 3600000 });
+        await usersCollection.insertOne({
+          email,
+          verificationCode,
+          verificationCodeExpires: Date.now() + 3600000,
+        });
       }
 
       // Send the verification code to the user's email
       const mailOptions = {
         from: `UrbanDrive <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Your Email Verification Code',
+        subject: "Your Email Verification Code",
         text: `Your verification code is: ${verificationCode}`,
       };
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-          console.error('Error sending verification email:', error);
-          res.status(500).send({ success: false, message: 'Error sending verification email' });
+          console.error("Error sending verification email:", error);
+          res
+            .status(500)
+            .send({
+              success: false,
+              message: "Error sending verification email",
+            });
         } else {
-          console.log('Verification email sent:', info.response);
-          res.send({ success: true, message: 'Verification email sent' });
+          console.log("Verification email sent:", info.response);
+          res.send({ success: true, message: "Verification email sent" });
         }
       });
     });
 
     // API to Verify Code
-    app.post('/verify-code', async (req, res) => {
+    app.post("/verify-code", async (req, res) => {
       const { email, code } = req.body;
-
 
       const user = await usersCollection.findOne({ email });
 
-
-      if (user && user.verificationCode === code && user.verificationCodeExpires > Date.now()) {
-
+      if (
+        user &&
+        user.verificationCode === code &&
+        user.verificationCodeExpires > Date.now()
+      ) {
         await usersCollection.updateOne(
           { email },
-          { $unset: { verificationCode: "", verificationCodeExpires: "" }, $set: { isEmailVerified: true } }
+          {
+            $unset: { verificationCode: "", verificationCodeExpires: "" },
+            $set: { isEmailVerified: true },
+          }
         );
-        res.send({ success: true, message: 'Email verified successfully' });
+        res.send({ success: true, message: "Email verified successfully" });
       } else {
-        res.status(400).send({ success: false, message: 'Invalid or expired verification code' });
+        res
+          .status(400)
+          .send({
+            success: false,
+            message: "Invalid or expired verification code",
+          });
       }
     });
 
+    // host car
+    app.post("/hostCar", async (req, res) => {
+      try {
+        const hostCarData = req.body;
+        const result = await hostCarCollection.insertOne(hostCarData);
+        res.send({
+          success: true,
+          message: "Car hosted successfully",
+          carId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error hosting car:", error);
+        res.status(500).send({ success: false, error: "Failed to host car" });
+      }
+    });
+    // get host car
+    app.get("/hostCar", async (req, res) => {
+      try {
+        const hostCar = await hostCarCollection.find({}).toArray();
+        res.send(hostCar);
+      } catch (error) {
+        console.error("Error fetching host cars:", error);
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to fetch host cars" });
+      }
+    });
 
+    // admin api
+    app.get("/admin-stats", async (req, res) => {
+      const hostCount = await usersCollection.countDocuments({ role: "Host" });
 
+      const passengerCount = await usersCollection.countDocuments({
+        role: { $nin: ["Admin", "Host"] },
+      });
 
+      const carCount = await carsCollection.countDocuments();
+
+      // console.log(hostCount,passengerCount,carCount)
+
+      res.send({ hostCount, passengerCount, carCount });
+    });
+    // get all car
+    app.get("/totalCars", async (req, res) => {
+      const totalCar = await carsCollection.find().toArray();
+      res.send(totalCar);
+    });
+    // delete specific car
+    app.delete("/cars/delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await carsCollection.deleteOne(query);
+      res.send(result);
+    });
+    // get all bookings
+    app.get("/allBookings", async (req, res) => {
+      const result = await bookingsCollection.find().toArray();
+      res.send(result);
+    });
+    // get recent booking
+    app.get("/recent-bookings", async (req, res) => {
+      const recentBookings = await bookingsCollection
+        .find()
+        .sort({ startDate: -1 })
+        .limit(4)
+        .toArray();
+
+      res.send(recentBookings);
+    });
+
+    // get membership
+    app.get('/all-membership', async (req, res) => {
+      const result = await membershipCollection.find().toArray();
+      res.send(result)
+    })
 
     // await client.db("admin").command({ ping: 1 });
     // console.log(
