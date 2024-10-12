@@ -55,8 +55,6 @@ async function run() {
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
-    const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
-    const hostCarCollection = client.db("urbanDrive").collection("hostCar");
     // ssl commarze
     const paymentSuccess = client.db("urbanDrive").collection("payment");
 
@@ -233,13 +231,15 @@ async function run() {
       res.send(result);
     });
 
-
+// -----------------------ssl commarze start----------------
     //1.init payment
     //2.post Request---url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+    // 3. save data in database
+    // 4. if payment success and then update database
+    // 5. if payment is not success and fail
     // sslCommarze create payment-------------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
-
       const trxId = new ObjectId().toString();
       const intentData = {
         store_id,
@@ -289,16 +289,13 @@ async function run() {
           paymentUrl: response.data.GatewayPageURL,
         });
       }
-
-
     })
-
+    // success-payment
     app.post("/success-payment", async (req, res) => {
       const successData = req.body;
       if (successData.status !== "VALID") {
         throw new Error("unauthorize payment , invalid payment")
       }
-
       // update the database
       const query = {
         paymentId: successData.tran_id
@@ -306,18 +303,30 @@ async function run() {
       const update = {
         $set: {
           status: "Success",
+          tran_date: successData.tran_date,
+          card_type: successData.card_type,
         }
       }
       const updateData = await paymentSuccess.updateOne(query, update)
-      console.log(successData, "success data");
-      console.log(updateData, "update data");
+      console.log(updateData);
+      res.redirect("http://localhost:5173/success")
     })
+    // fail-payment
+    app.post("/fail", async (req, res) => {
+      res.redirect("http://localhost:5173/fail")
+    })
+    // cancel-payment
+    app.post("/cancel", async (req, res) => {
+      res.redirect("http://localhost:5173/cancel")
+    })
+
 
     // get paymentSuccess data
     app.get('/payment-data', async (req, res) => {
       const result = await paymentSuccess.find().toArray()
       res.send(result)
     })
+// -----------------------ssl commarze end----------------
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
