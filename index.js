@@ -109,7 +109,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        console.log("Incoming query parameters:", req.query);
+        // console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
