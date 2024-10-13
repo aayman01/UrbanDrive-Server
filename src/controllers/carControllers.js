@@ -1,4 +1,4 @@
-const carsCollection = require('../config/db').db("urbanDrive").collection("cars");
+const carsCollection = require('../config/database').db("urbanDrive").collection("cars");
 
 exports.getCars = async (req, res) => {
   const { page = 1, limit = 6, category = "", minPrice = 0, maxPrice = Number.MAX_SAFE_INTEGER, sort, seatCount } = req.query;
@@ -27,3 +27,16 @@ exports.getCars = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+exports.getTotalCars = async (req, res) => {
+  const totalCar = await carsCollection.find().toArray();
+  res.send(totalCar)
+};
+
+exports.getCarById = async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const car = await carsCollection.findOne(query);
+  res.send(car);
+};
+

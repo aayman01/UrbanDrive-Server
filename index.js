@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8000 || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
@@ -278,6 +278,7 @@ async function run() {
         res.status(500).send({ success: false, error: "Failed to fetch bookings" });
       }
     })
+    
     // get booking
     app.get("/bookings/:bookingId", async (req, res) => {
       try {
@@ -301,55 +302,50 @@ async function run() {
     });
 
     // Update a booking
-    app.put("/bookings/:bookingId", async (req, res) => {
-      try {
-        const bookingId = req.params.bookingId;
+app.put("/bookings/:bookingId", async (req, res) => {
+  try {
+    const bookingId = req.params.bookingId;
 
-       
-        if (!ObjectId.isValid(bookingId)) {
-          return res.status(400).send({ success: false, message: "Invalid booking ID format" });
-        }
+    if (!ObjectId.isValid(bookingId)) {
+      return res.status(400).send({ success: false, message: "Invalid booking ID format" });
+    }
 
-        const {
-          email,
-          phoneNumber,
-          paymentMethod
-        } = req.body; 
-        // console.log(email, phoneNumber, paymentMethod);
-        // console.log("Request body:", req.body);
-        if (!email || !phoneNumber || !paymentMethod) {
-          return res.status(400).send({ success: false, message: "Required fields missing." });
-        }
+    const {
+      email,
+      phoneNumber,
+      paymentMethod,
+      driversLicense 
+    } = req.body;
 
-        
-        let driversLicenseUrl = '';
-        if (req.files && req.files.driversLicense) {
-          
-          driversLicenseUrl = await uploadFile(req.files.driversLicense);
-        }
+    // Check for required fields
+    if (!email || !phoneNumber || !paymentMethod) {
+      return res.status(400).send({ success: false, message: "Required fields missing." });
+    }
 
-        const updatedBooking = {
-          email,
-          phoneNumber,
-          driversLicense: driversLicenseUrl,
-          paymentMethod
-        };
+    // Prepare the update object
+    const updatedBooking = {
+      email,
+      phoneNumber,
+      paymentMethod,
+      driversLicense 
+    };
 
-        const result = await bookingsCollection.updateOne(
-          { _id: new ObjectId(bookingId) },
-          { $set: updatedBooking }
-        );
+    // Update the booking in the database
+    const result = await bookingsCollection.updateOne(
+      { _id: new ObjectId(bookingId) },
+      { $set: updatedBooking }
+    );
 
-        if (result.matchedCount === 0) {
-          return res.status(404).send({ success: false, message: "Booking not found" });
-        }
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ success: false, message: "Booking not found" });
+    }
 
-        res.send({ success: true, message: "Booking updated successfully" });
-      } catch (error) {
-        console.error("Error updating booking:", error);
-        res.status(500).send({ success: false, error: "Failed to update booking" });
-      }
-    });
+    res.send({ success: true, message: "Booking updated successfully" });
+  } catch (error) {
+    console.error("Error updating booking:", error);
+    res.status(500).send({ success: false, error: "Failed to update booking" });
+  }
+});
 
 
     //  API to send verification code

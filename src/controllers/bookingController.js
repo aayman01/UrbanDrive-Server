@@ -1,4 +1,4 @@
-const bookingsCollection = require('../config/db').db("urbanDrive").collection("bookings");
+const bookingsCollection = require('../config/database').db("urbanDrive").collection("bookings");
 
 exports.createBooking = async (req, res) => {
   const booking = req.body;

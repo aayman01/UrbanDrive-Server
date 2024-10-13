@@ -1,4 +1,4 @@
-const hostCarCollection = require('../config/db').db("urbanDrive").collection("hostCar");
+const hostCarCollection = require('../config/database').db("urbanDrive").collection("hostCar");
 
 exports.createHostCar = async (req, res) => {
     try {

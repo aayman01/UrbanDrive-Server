@@ -1,4 +1,4 @@
-const usersCollection = require('../config/db').db("urbanDrive").collection("users");
+const usersCollection = require('../config/database').db("urbanDrive").collection("users");
 const crypto = require("crypto");
 const transporter = require('../services/emailService');
 
