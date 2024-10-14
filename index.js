@@ -50,6 +50,8 @@ async function run() {
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
+    const reviewsCollection = client.db("urbanDrive").collection("reviews");
+
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -252,10 +254,17 @@ async function run() {
     });
 
     app.get("/cars/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const car = await carsCollection.findOne(query);
-      res.send(car);
+      try {
+        const carId = req.params.id;
+        const car = await carsCollection.findOne({ _id: new ObjectId(carId) });
+        if (!car) {
+          return res.status(404).json({ message: "Car not found" });
+        }
+        res.json(car);
+      } catch (error) {
+        console.error("Error fetching car details:", error);
+        res.status(500).json({ message: "Failed to fetch car details" });
+      }
     });
 
     // bookings
@@ -422,8 +431,59 @@ app.put("/bookings/:bookingId", async (req, res) => {
         res.status(500).send({ success: false, error: "Failed to fetch host cars" });
       }
     });
+
+    // reviews
+    app.post("/reviews", async (req, res) => {
+      try {
+        const reviewData = req.body;
+        const result = await reviewsCollection.insertOne(reviewData);
+        
+        // Update the car's average rating
+        const carId = reviewData.carId;
+        const allReviews = await reviewsCollection.find({ carId: new ObjectId(carId) }).toArray();
+        const totalRating = allReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalRating / allReviews.length;
+        
+        await carsCollection.updateOne(
+          { _id: new ObjectId(carId) },
+          { $set: { averageRating, reviewCount: allReviews.length } }
+        );
     
-    
+        res.status(201).json({ success: true, message: "Review submitted successfully" });
+      } catch (error) {
+        console.error("Error submitting review:", error);
+        res.status(500).json({ success: false, message: "Failed to submit review" });
+      }
+    });
+
+    // get reviews
+  app.get("/reviews", async (req, res) => {
+    try {
+      const reviews = await reviewsCollection.find().toArray();
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+    // get reviews by id
+    app.get("/reviews/:carId", async (req, res) => {
+      try {
+        const carId = req.params.carId;
+        const reviews = await reviewsCollection.find({ carId: new ObjectId(carId) }).sort({ createdAt: -1 }).toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews" });
+      }
+
+
+
+
+
+      
+    });
     // admin api
 
     app.patch("/users/admin/:id", async (req, res) => {
