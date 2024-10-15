@@ -60,7 +60,8 @@ async function run() {
       .collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     // ssl commarze
-    const paymentSuccess = client.db("urbanDrive").collection("payment");
+    // const paymentSuccess = client.db("urbanDrive").collection("payment");
+    const paymentSuccessMemberships = client.db("urbanDrive").collection("successMemberships");
 
     const membershipCollection = client
       .db("urbanDrive")
@@ -275,7 +276,6 @@ async function run() {
     // sslCommarze create payment-------------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
-      console.log(paymentInfo);
       const trxId = new ObjectId().toString();
       const intentData = {
         store_id,
@@ -295,7 +295,7 @@ async function run() {
         cus_country: "Bangladesh",
         cus_phone: "01711111111",
         shipping_method: "NO",
-        product_name: paymentInfo?.productName || "Car",
+        product_name: paymentInfo?.productName || paymentInfo?.planName || "car",
         product_category: "General",
         product_profile: "general",
       };
@@ -317,9 +317,12 @@ async function run() {
         amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         paymentId: trxId,
-        status: "Pending"
+        status: "Pending",
+        expiryDate: paymentInfo.expiryDate,
+        purchaseDate: paymentInfo.purchaseDate,
+        planName:paymentInfo.planName
       }
-      const result = await paymentSuccess.insertOne(saveData)
+      const result = await paymentSuccessMemberships.insertOne(saveData)
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
@@ -343,7 +346,7 @@ async function run() {
           card_type: successData.card_type,
         }
       }
-      const updateData = await paymentSuccess.updateOne(query, update)
+      const updateData = await paymentSuccessMemberships.updateOne(query, update)
       console.log(updateData);
       res.redirect("http://localhost:5173/success")
     })
@@ -358,8 +361,8 @@ async function run() {
 
 
     // get paymentSuccess data
-    app.get('/payment-data', async (req, res) => {
-      const result = await paymentSuccess.find().toArray()
+    app.get('/memberships-data', async (req, res) => {
+      const result = await paymentSuccessMemberships.find().toArray()
       res.send(result)
     })
 
@@ -367,7 +370,7 @@ async function run() {
     app.get("/myPaymentHistory/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await paymentSuccess.find(query).toArray();
+      const result = await paymentSuccessMemberships.find(query).toArray();
       res.send(result);
     });
     // -----------------------ssl commarze end----------------
