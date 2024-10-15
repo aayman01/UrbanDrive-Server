@@ -436,11 +436,12 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.post("/reviews", async (req, res) => {
       try {
         const reviewData = req.body;
+        reviewData.carId = reviewData.carId.toString();
         const result = await reviewsCollection.insertOne(reviewData);
         
-        // Update the car's average rating
+        
         const carId = reviewData.carId;
-        const allReviews = await reviewsCollection.find({ carId: new ObjectId(carId) }).toArray();
+        const allReviews = await reviewsCollection.find({ carId: carId }).toArray();
         const totalRating = allReviews.reduce((sum, review) => sum + review.rating, 0);
         const averageRating = totalRating / allReviews.length;
         
@@ -471,18 +472,14 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.get("/reviews/:carId", async (req, res) => {
       try {
         const carId = req.params.carId;
-        const reviews = await reviewsCollection.find({ carId: new ObjectId(carId) }).sort({ createdAt: -1 }).toArray();
+        // console.log("Fetching reviews for carId:", carId); 
+        const reviews = await reviewsCollection.find({ carId: carId }).sort({ createdAt: -1 }).toArray();
+        // console.log("Found reviews:", reviews.length); 
         res.json(reviews);
       } catch (error) {
         console.error("Error fetching reviews:", error);
         res.status(500).json({ message: "Failed to fetch reviews" });
       }
-
-
-
-
-
-      
     });
     // admin api
 
