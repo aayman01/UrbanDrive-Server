@@ -436,10 +436,10 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.post("/reviews", async (req, res) => {
       try {
         const reviewData = req.body;
+        // Store carId as a string
         reviewData.carId = reviewData.carId.toString();
         const result = await reviewsCollection.insertOne(reviewData);
-        
-        
+        // Update the car's average rating
         const carId = reviewData.carId;
         const allReviews = await reviewsCollection.find({ carId: carId }).toArray();
         const totalRating = allReviews.reduce((sum, review) => sum + review.rating, 0);
@@ -472,15 +472,33 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.get("/reviews/:carId", async (req, res) => {
       try {
         const carId = req.params.carId;
-        // console.log("Fetching reviews for carId:", carId); 
-        const reviews = await reviewsCollection.find({ carId: carId }).sort({ createdAt: -1 }).toArray();
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const skip = (page - 1) * limit;
+
+        const reviews = await reviewsCollection
+        .find({carId:carId})
+        .sort({createdAt:-1})
+        .skip(skip)
+        .limit(limit)
+        .toArray();
         // console.log("Found reviews:", reviews.length); 
-        res.json(reviews);
+
+        const totalReviews = await reviewsCollection.countDocuments({carId:carId});
+        const totalPages = Math.ceil(totalReviews/limit);
+
+        // console.log("Fetching reviews for carId:", carId); 
+        
+        res.json({ reviews, totalReviews, totalPages, currentPage: page });
       } catch (error) {
         console.error("Error fetching reviews:", error);
         res.status(500).json({ message: "Failed to fetch reviews" });
       }
     });
+
+
+
     // admin api
 
     app.patch("/users/admin/:id", async (req, res) => {
