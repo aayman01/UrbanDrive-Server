@@ -275,6 +275,7 @@ async function run() {
     // sslCommarze create payment-------------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
+      console.log(paymentInfo);
       const trxId = new ObjectId().toString();
       const intentData = {
         store_id,
