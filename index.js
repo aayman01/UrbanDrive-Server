@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
@@ -162,12 +162,76 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
+    app.post("/user/profile", async (req, res) => {
+        const { updateData } = req.body; 
+        const email = updateData.email;
+        console.log('email:', email)
+        console.log('UpdateProfile:', updateData);
+      try {
+     
+        if (updateData.link) {
+          const existingLinks = Array.isArray(updateData.link) ? updateData.link : [updateData.link];
+          if (!existingLinks.includes(updateData.link)) {
+            existingLinks.push(updateData.link);
+          }
+  
+          updateData.link = existingLinks; 
+        } else {
+          
+          updateData.link = updateData.link; 
+        }
+         //Find the user by email and update the profile
+         const result = await usersCollection.updateOne(
+           { email: email }, // Find user by unique field like email
+           {
+             $set: updateData, // Update the profile with new fields
+           },
+           { upsert: true } // Optional: If user doesn't exist, insert a new document
+         );
+    
+        if (result.modifiedCount > 0) {
+          res.status(200).send({ message: 'Profile successfully updated' });
+        } else if (result.upsertedCount > 0) {
+          res.status(201).send({ message: 'Profile successfully created' });
+        } else {
+          res.status(400).send({ message: 'No changes made to the profile' });
+        }
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).send({ message: 'Failed to update profile' });
+      }
+    });
+    
+    
 
     app.get("/user/:email", async (req, res) => {
       const email = req.params.email;
       const result = await usersCollection.findOne({ email });
-      res.send(result);
+      if (result) {
+        res.send(result);
+    } else {
+        res.status(404).send({ message: 'User not found' });
+    }
     });
+    // In your server-side route (userRoutes.js or memberships route)
+app.get('/users', async (req, res) => {
+  const email = req.query.email; // Get email from query parameter
+  if (!email) {
+    return res.status(400).json({ message: "Email query parameter is required" });
+  }
+
+  try {
+    const userData =  await usersCollection.findOne({email:email})
+
+    if (!userData) {
+      return res.status(404).json({ message: "No user found for this email" });
+    }
+
+    res.json(userData);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching memberships", error });
+  }
+});
 
     app.get("/user", async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -441,6 +505,41 @@ async function run() {
       };
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
+    });
+
+    app.patch('/users/profile/:id', async (req, res) => {
+      const id = req.params.id; // Get the user ID from the request parameters
+      const data = req.body; 
+      // Get the data from the request body
+    
+      // Create a filter to find the user by ID
+      const filter = { _id: new ObjectId(id) }; 
+    
+      // Prepare the updated document
+      const updatedDoc = {
+        $set: {
+          name: data.name, // Update name
+          email: data.email, // Update email
+          phoneNumber: data.phoneNumber, // Update phone number
+          profilePicture: req.file ? req.file.path : null, // Handle file upload path
+        },
+      };
+    
+      try {
+        // Update the user in the database
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+    
+        // Check if any document was modified
+        if (result.modifiedCount === 0) {
+          return res.status(404).json({ message: 'User not found or no changes made' });
+        }
+    
+        // Respond with the updated result
+        res.json({ message: 'Profile updated successfully', result });
+      } catch (error) {
+        // Handle any errors
+        res.status(500).json({ message: 'Error updating profile', error });
+      }
     });
 
     app.get('/admin-stats',async(req,res) => {
