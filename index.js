@@ -436,6 +436,14 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.post("/reviews", async (req, res) => {
       try {
         const reviewData = req.body;
+        const existingReview = await reviewsCollection.findOne({
+          carId: reviewData.carId,
+          userId: reviewData.userId
+        })
+        if(existingReview){
+          return res.status(400).json({ success: false, message: "You already reviewed this car" });
+        }
+        reviewData.createdAt = new Date();
         // Store carId as a string
         reviewData.carId = reviewData.carId.toString();
         const result = await reviewsCollection.insertOne(reviewData);
