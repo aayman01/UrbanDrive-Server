@@ -40,7 +40,7 @@ const transporter = nodemailer.createTransport({
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
     // Send a ping to confirm a successful connection
 
     const usersCollection = client.db("urbanDrive").collection("users");
@@ -50,6 +50,7 @@ async function run() {
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
+    const favoriteCarsCollection = client.db("urbanDrive").collection("favoriteCars");
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -150,7 +151,18 @@ async function run() {
       const data = await memberships.find().toArray();
       res.send(data)
     })
+      
+    app.get('/favoritesCars/:email',async(req,res)=>{
+      const email = req.params.email;
+      const result = await favoriteCarsCollection.find({ email }).toArray();
+      console.log('result:',result)
+      if (result) {
+        res.send(result);
+    } else {
+        res.status(404).send({ message: 'User not found' });
+    }
 
+    })
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -162,12 +174,41 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
-    app.post("/user/profile", async (req, res) => {
+    app.post('/favoritesCars', async (req, res) => {
+      const carData = req.body;
+      const userEmail = req.body.email;
+      // console.log('carData:', carData);
+  
+      try {
+          carData._id = new ObjectId(carData._id);
+          const existingCar = await favoriteCarsCollection.findOne({ _id: carData._id });
+  
+          if (existingCar) {
+              return res.status(400).send({ message: 'Car already in favorites' });
+          }
+          const carWithEmail = {
+            ...carData,
+            email: userEmail 
+          };
+          const favoriteCar = await favoriteCarsCollection.insertOne(carWithEmail);
+          res.send(favoriteCar);
+      } catch (error) {
+          console.error('Error adding to favorites:', error);
+          res.status(500).send({ message: 'Internal server error' });
+      }
+  });
+    
+    app.put("/user/profile", async (req, res) => {
         const { updateData } = req.body; 
         const email = updateData.email;
         console.log('email:', email)
         console.log('UpdateProfile:', updateData);
       try {
+        const existingUser = await usersCollection.findOne({ email: email });
+
+        if (!existingUser) {
+            return res.status(404).send({ message: 'User not found' });
+        }
      
         if (updateData.link) {
           const existingLinks = Array.isArray(updateData.link) ? updateData.link : [updateData.link];
@@ -184,7 +225,21 @@ async function run() {
          const result = await usersCollection.updateOne(
            { email: email }, // Find user by unique field like email
            {
-             $set: updateData, // Update the profile with new fields
+            $set: {
+              ...(updateData.Name && { Name: updateData.Name }),
+              ...(updateData.photoURL && { photoURL: updateData.photoURL }),
+              ...(updateData.language && { language: updateData.language }),
+              ...(updateData.work && { work: updateData.work }), 
+              ...(updateData.phone && { phone: updateData.phone }), 
+              ...(updateData.link && {
+                  link: [
+                      ...new Set([
+                          ...(existingUser.link || []), // Keep existing links
+                          ...(Array.isArray(updateData.link) ? updateData.link : [updateData.link]) // Add new links
+                      ])
+                  ]
+              }) // Update link if present
+          }// Update the profile with new fields
            },
            { upsert: true } // Optional: If user doesn't exist, insert a new document
          );
@@ -199,6 +254,31 @@ async function run() {
       } catch (error) {
         console.error('Error updating profile:', error);
         res.status(500).send({ message: 'Failed to update profile' });
+      }
+    });
+    app.delete('/favoritesCars/:id', async (req, res) => {
+      const carId = req.params.id;
+      // console.log('carid:',carId)
+     
+      try {
+        const carExists = await favoriteCarsCollection.findOne({ _id: new ObjectId(carId) });
+        // console.log('exist car:', carExists);
+        // console.log('ObjectId:', new ObjectId(carId));
+
+        if (!carExists) {
+            return res.status(404).send({ message: 'Car not found in favorites' });
+        }
+        const result = await favoriteCarsCollection.deleteOne({ _id:new ObjectId(carId) });
+        // console.log('result:',result);
+    
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ message: 'Car not found in favorites' });
+        }
+    
+        res.send({ message: 'Car removed from favorites successfully' });
+      } catch (error) {
+        console.error('Error removing from favorites:', error);
+        res.status(500).send({ message: 'Internal server error' });
       }
     });
     
