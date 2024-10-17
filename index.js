@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 8000 || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const SSLCommerzPayment = require('sslcommerz-lts');
 const { default: axios } = require("axios");
@@ -68,6 +68,8 @@ async function run() {
       .db("urbanDrive")
       .collection("membershipsInfo");
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
+    const reviewsCollection = client.db("urbanDrive").collection("reviews");
+
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -124,10 +126,26 @@ async function run() {
         // Calculate total pages
         const totalPages = Math.ceil(totalCars / limit);
 
+        // calculate average rating
+        const CarsWithRatings = await Promise.all(Cars.map(async (car) => {
+          const reviews = await reviewsCollection.find({ carId: car._id.toString() }).toArray();
+          const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+          const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+          return { ...car, averageRating, reviewCount: reviews.length };
+        }));
+
+        // Include category averages if they exist, otherwise use default values
+      const categoryAverages = CarsWithRatings.categoryAverages || {
+        cleanliness: 0,
+        communication: 0,
+        comfort: 0,
+        convenience: 0,
+        };
+
         // Send the paginated data along with totalPages and totalCars
         // console.log("Incoming query parameters:", req.query);
 
-        res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
+        res.json({ Cars: CarsWithRatings, totalCars, totalPages, totalCars, currentPage: page, categoryAverages });
       } catch (error) {
         res.status(500).json({ message: "Server error", error });
       }
@@ -466,10 +484,37 @@ async function run() {
     // -----------------------ssl commarze end----------------
 
     app.get("/cars/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const car = await carsCollection.findOne(query);
-      res.send(car);
+      try {
+        const carId = req.params.id;
+        const car = await carsCollection.findOne({ _id: new ObjectId(carId) });
+        if (!car) {
+          return res.status(404).json({ message: "Car not found" });
+        }
+        // Fetch reviews for this car
+      const reviews = await reviewsCollection.find({ carId: carId.toString() }).toArray();
+      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+      // Include category averages if they exist, otherwise use default values
+    const categoryAverages = car.categoryAverages || {
+      cleanliness: 0,
+      communication: 0,
+      comfort: 0,
+        convenience: 0,
+      };
+
+        // Add average rating and review count to the car object
+        const carWithRating = {
+        ...car,
+        averageRating,
+        reviewCount: reviews.length,
+        categoryAverages
+    };
+
+        res.json(carWithRating);
+      } catch (error) {
+        console.error("Error fetching car details:", error);
+        res.status(500).json({ message: "Failed to fetch car details" });
+      }
     });
 
     // bookings
@@ -527,9 +572,9 @@ async function run() {
     });
 
     // Update a booking
-    app.put("/bookings/:bookingId", async (req, res) => {
-      try {
-        const bookingId = req.params.bookingId;
+app.put("/bookings/:bookingId", async (req, res) => {
+  try {
+    const bookingId = req.params.bookingId;
 
         if (!ObjectId.isValid(bookingId)) {
           return res
@@ -558,10 +603,11 @@ async function run() {
           paymentMethod,
         };
 
-        const result = await bookingsCollection.updateOne(
-          { _id: new ObjectId(bookingId) },
-          { $set: updatedBooking }
-        );
+    // Update the booking in the database
+    const result = await bookingsCollection.updateOne(
+      { _id: new ObjectId(bookingId) },
+      { $set: updatedBooking }
+    );
 
         if (result.matchedCount === 0) {
           return res
@@ -685,8 +731,152 @@ async function run() {
       }
     });
 
-    // admin api
-    app.get("/admin-stats", async (req, res) => {
+   // reviews
+    app.post("/reviews", async (req, res) => {
+      try {
+        const reviewData = req.body;
+        // const existingReview = await reviewsCollection.findOne({
+        //   carId: reviewData.carId,
+        //   userId: reviewData.userId
+        // })
+        // if(existingReview){
+        //   return res.status(400).json({ 
+        //     success: false, 
+        //     message: "You already reviewed this car" });
+        // }
+
+        reviewData.createdAt = new Date();
+        // Store carId as a string
+        reviewData.carId = reviewData.carId.toString();
+        const result = await reviewsCollection.insertOne(reviewData);
+        // Update the car's average rating
+        const carId = reviewData.carId;
+        const allReviews = await reviewsCollection.find({ carId: carId }).toArray();
+        const totalRating = allReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalRating / allReviews.length;
+
+        // category wise rating
+        const categoryRatings = {
+          Cleanliness: 0,
+          Communication: 0,
+          Comfort: 0,
+          Convenience: 0,
+        }
+
+        allReviews.forEach(review => {
+          if (review.ratingDetails) {
+            Object.keys(categoryRatings).forEach(category => {
+              categoryRatings[category] += review.ratingDetails[category] || 0;
+            });
+          }
+        });
+        
+        // Calculate final category averages
+        Object.keys(categoryRatings).forEach(category => {
+          categoryRatings[category] = categoryRatings[category] / allReviews.length;
+        });
+
+
+
+        // allReviews.forEach(review =>{
+        //   categoryRatings.Cleanliness += review.ratingDetails?.Cleanliness || 0;
+        //   categoryRatings.Communication += review.ratingDetails?.Communication || 0;
+        //   categoryRatings.Comfort += review.ratingDetails?.Comfort || 0;
+        //   categoryRatings.Convenience += review.ratingDetails?.Convenience || 0;
+        // })
+
+        
+        
+        await carsCollection.updateOne(
+          { _id: new ObjectId(carId) },
+          { $set: { averageRating, reviewCount: allReviews.length, categoryRatings } }
+        );
+    
+        res.status(201).json({ success: true, message: "Review submitted successfully" });
+      } catch (error) {
+        console.error("Error submitting review:", error);
+        res.status(500).json({ success: false, message: "Failed to submit review" });
+      }
+    });
+
+    // get reviews
+  app.get("/reviews", async (req, res) => {
+    try {
+      const reviews = await reviewsCollection.find().toArray();
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+    // get reviews by id
+    app.get("/reviews/:carId", async (req, res) => {
+      try {
+        const carId = req.params.carId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const skip = (page - 1) * limit;
+
+        const reviews = await reviewsCollection
+        .find({carId:carId})
+        .sort({createdAt:-1})
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+        // console.log("Found reviews:", reviews.length); 
+
+        const totalReviews = await reviewsCollection.countDocuments({carId:carId});
+        const totalPages = Math.ceil(totalReviews/limit);
+        // console.log("Fetching reviews for carId:", carId); 
+
+        const car = await carsCollection.findOne({_id: new ObjectId(carId)},
+        {
+          projection: {
+            averageRating: 1,
+            reviewCount: 1,
+            categoryRatings: 1,
+          }
+        }
+      );
+// Adnan Note: Projection is used to get only the specified fields from the database and it is faster than using find()
+        
+      res.json({
+        reviews,
+        totalReviews,
+        totalPages,
+        currentPage: page,
+        averageRating: car?.averageRating || 0,
+        categoryRatings: car?.categoryRatings || {
+          cleanliness: 0,
+          communication: 0,
+          convenience: 0
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews" });
+      }
+    });
+
+
+
+     // admin api
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
+    app.get('/admin-stats',async(req,res) => {
       const hostCount = await usersCollection.countDocuments({ role: "Host" });
 
       const passengerCount = await usersCollection.countDocuments({
