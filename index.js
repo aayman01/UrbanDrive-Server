@@ -281,7 +281,6 @@ async function run() {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
       // console.log(paymentInfo);
-      // console.log(paymentInfo.bookingDetails.carDetails);
       const intentData = {
         store_id,
         store_passwd,
@@ -330,7 +329,7 @@ async function run() {
         location: paymentInfo.bookingDetails?.location,
         status: paymentInfo.bookingDetails?.status,
         includedDriver: paymentInfo.bookingDetails?.includedDriver,
-        carDetails: paymentInfo.bookingDetails.carDetails
+        carDetails: paymentInfo?.bookingDetails?.carDetails
       }
       const result = await bookingsCollection.insertOne(saveData)
       if (result) {
