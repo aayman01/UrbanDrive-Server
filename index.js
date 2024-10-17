@@ -12,6 +12,8 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
 app.use(express.json());
+app.use(express.json({ limit: '10mb' })); 
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -52,6 +54,7 @@ async function run() {
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
     const favoriteCarsCollection = client.db("urbanDrive").collection("favoriteCars");
 
+   
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
       const limit = parseInt(req.query.limit) || 6;
@@ -121,7 +124,7 @@ async function run() {
       try {
         let query = {};
     
-        if (location === "current" && lat && Long) {
+        if (location === "current" && lat && lng) {
           const coordinates = [parseFloat(lng), parseFloat(lat)];
           query.location = {
             $near: {
@@ -145,6 +148,48 @@ async function run() {
         res.status(500).json({ message: "Server error", error });
       }
     });
+    // app.get("/SearchCars", async (req, res) => {
+    //   const { lng, lat, maxDistance, location } = req.query;
+    
+    //   try {
+    //     let query = {};
+    //     await collection.createIndex({ location: "2dsphere" });
+    //     if (location === "current" && lat && lng) {
+    //       const coordinates = [parseFloat(lng), parseFloat(lat)];
+    //       const maxDistanceValue = parseInt(maxDistance) || 5000;
+    
+    //       // কোর্ডিনেটস চেক এবং কুয়েরি সেটআপ
+    //       if (isNaN(maxDistanceValue)) {
+    //         return res.status(400).json({ message: "Invalid maxDistance value" });
+    //       }
+    //       if (isNaN(coordinates[0]) || isNaN(coordinates[1])) {
+    //         return res.status(400).json({ message: "Invalid coordinates" });
+    //       }
+    //       query.location = {
+    //         $near: {
+    //           $geometry: {
+    //             type: "Point",
+    //             coordinates: coordinates,
+    //           },
+    //           $maxDistance: maxDistanceValue,
+    //         },
+    //       };
+    
+    //       console.log("Coordinates for search:", coordinates);
+    //     } else if (location === "anywhere") {
+    //       query = {}; // এখানে সমস্ত গাড়ি অনুসন্ধান করা হবে
+    //     } else {
+    //       return res.status(400).json({ message: "Invalid location parameter" });
+    //     }
+    
+    //     const cars = await carsCollection.find(query).toArray();
+    //     res.json(cars);
+    
+    //   } catch (error) {
+    //     console.error("Error occurred:", error);
+    //     res.status(500).json({ message: "Server error", error });
+    //   }
+    // });
 
     // get membership data
     app.get("/memberships",async(req,res)=>{
@@ -287,6 +332,16 @@ async function run() {
     app.get("/user/:email", async (req, res) => {
       const email = req.params.email;
       const result = await usersCollection.findOne({ email });
+      if (result) {
+        res.send(result);
+    } else {
+        res.status(404).send({ message: 'User not found' });
+    }
+    });
+    app.get("/booking/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await bookingsCollection.find({ email }).toArray();
+      console.log('result:',result)
       if (result) {
         res.send(result);
     } else {
