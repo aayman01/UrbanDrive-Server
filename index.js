@@ -107,10 +107,26 @@ async function run() {
         // Calculate total pages
         const totalPages = Math.ceil(totalCars / limit);
 
-        // Send the paginated data along with totalPages and totalCars
-        console.log("Incoming query parameters:", req.query);
+        // calculate average rating
+        const CarsWithRatings = await Promise.all(Cars.map(async (car) => {
+          const reviews = await reviewsCollection.find({ carId: car._id.toString() }).toArray();
+          const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+          const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+          return { ...car, averageRating, reviewCount: reviews.length };
+        }));
 
-        res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
+        // Include category averages if they exist, otherwise use default values
+      const categoryAverages = CarsWithRatings.categoryAverages || {
+        cleanliness: 0,
+        communication: 0,
+        comfort: 0,
+        convenience: 0,
+        };
+
+        // Send the paginated data along with totalPages and totalCars
+        // console.log("Incoming query parameters:", req.query);
+
+        res.json({ Cars: CarsWithRatings, totalCars, totalPages, totalCars, currentPage: page, categoryAverages });
       } catch (error) {
         res.status(500).json({ message: "Server error", error });
       }
@@ -260,7 +276,27 @@ async function run() {
         if (!car) {
           return res.status(404).json({ message: "Car not found" });
         }
-        res.json(car);
+        // Fetch reviews for this car
+      const reviews = await reviewsCollection.find({ carId: carId.toString() }).toArray();
+      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+      // Include category averages if they exist, otherwise use default values
+    const categoryAverages = car.categoryAverages || {
+      cleanliness: 0,
+      communication: 0,
+      comfort: 0,
+        convenience: 0,
+      };
+
+        // Add average rating and review count to the car object
+        const carWithRating = {
+        ...car,
+        averageRating,
+        reviewCount: reviews.length,
+        categoryAverages
+    };
+
+        res.json(carWithRating);
       } catch (error) {
         console.error("Error fetching car details:", error);
         res.status(500).json({ message: "Failed to fetch car details" });
@@ -436,15 +472,15 @@ app.put("/bookings/:bookingId", async (req, res) => {
     app.post("/reviews", async (req, res) => {
       try {
         const reviewData = req.body;
-        const existingReview = await reviewsCollection.findOne({
-          carId: reviewData.carId,
-          userId: reviewData.userId
-        })
-        if(existingReview){
-          return res.status(400).json({ 
-            success: false, 
-            message: "You already reviewed this car" });
-        }
+        // const existingReview = await reviewsCollection.findOne({
+        //   carId: reviewData.carId,
+        //   userId: reviewData.userId
+        // })
+        // if(existingReview){
+        //   return res.status(400).json({ 
+        //     success: false, 
+        //     message: "You already reviewed this car" });
+        // }
 
         reviewData.createdAt = new Date();
         // Store carId as a string
@@ -458,33 +494,33 @@ app.put("/bookings/:bookingId", async (req, res) => {
 
         // category wise rating
         const categoryRatings = {
-          cleaniness: 0,
-          communication: 0,
-          comfort: 0,
-          convenience: 0,
+          Cleanliness: 0,
+          Communication: 0,
+          Comfort: 0,
+          Convenience: 0,
         }
 
-        // allReviews.forEach(review => {
-        //   if (review.ratingDetails) {
-        //     Object.keys(categoryAverages).forEach(category => {
-        //       categoryAverages[category] += review.ratingDetails[category] || 0;
-        //     });
-        //   }
-        // });
+        allReviews.forEach(review => {
+          if (review.ratingDetails) {
+            Object.keys(categoryRatings).forEach(category => {
+              categoryRatings[category] += review.ratingDetails[category] || 0;
+            });
+          }
+        });
         
-        // // Calculate final category averages
-        // Object.keys(categoryAverages).forEach(category => {
-        //   categoryAverages[category] = categoryAverages[category] / allReviews.length;
-        // });
+        // Calculate final category averages
+        Object.keys(categoryRatings).forEach(category => {
+          categoryRatings[category] = categoryRatings[category] / allReviews.length;
+        });
 
 
 
-        allReviews.forEach(review =>{
-          categoryRatings.cleaniness += review.ratingDetails?.cleaniness || 0;
-          categoryRatings.communication += review.ratingDetails?.communication || 0;
-          categoryRatings.comfort += review.ratingDetails?.comfort || 0;
-          categoryRatings.convenience += review.ratingDetails?.convenience || 0;
-        })
+        // allReviews.forEach(review =>{
+        //   categoryRatings.Cleanliness += review.ratingDetails?.Cleanliness || 0;
+        //   categoryRatings.Communication += review.ratingDetails?.Communication || 0;
+        //   categoryRatings.Comfort += review.ratingDetails?.Comfort || 0;
+        //   categoryRatings.Convenience += review.ratingDetails?.Convenience || 0;
+        // })
 
         
         
