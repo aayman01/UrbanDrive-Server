@@ -17,6 +17,7 @@ app.use(express.urlencoded());
 app.use(cors());
 
 
+// const uri='mongodb://localhost:27017'
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -61,7 +62,7 @@ async function run() {
     const memberships = client.db("urbanDrive").collection("memberships");
     // ssl commarze
     // const paymentSuccess = client.db("urbanDrive").collection("payment");
-    const paymentSuccessMemberships = client.db("urbanDrive").collection("successMemberships");
+    const paymentSuccessMemberships = client.db("urbanDrive").collection("successMemberships");//payment success membership **
 
     const membershipCollection = client
       .db("urbanDrive")
@@ -274,6 +275,96 @@ async function run() {
     // 4. if payment success and then update database
     // 5. if payment is not success and fail
     // sslCommarze create payment-------------------------------
+
+    // booking cars
+    app.post("/booking-create-payment", async (req, res) => {
+      const paymentInfo = req.body;
+      const trxId = new ObjectId().toString();
+      // console.log(paymentInfo);
+      // console.log(paymentInfo.bookingDetails.carDetails);
+      const intentData = {
+        store_id,
+        store_passwd,
+        total_amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        tran_id: trxId,
+        success_url: "http://localhost:8000/success-booking",
+        fail_url: "http://localhost:8000/fail",
+        cancel_url: "http://localhost:8000/cancel",
+        emi_option: 0,
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        cus_add1: "Address Line 1",
+        cus_city: "City",
+        cus_postcode: "1234",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        shipping_method: "NO",
+        product_name: paymentInfo?.carDetails?.make || "car",
+        product_category: "General",
+        product_profile: "general",
+      };
+
+      const response = await axios({
+        method: "POST",
+        url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+        data: intentData,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+      // console.log(response);
+      // save data in database
+      const saveData = {
+        cus_name: paymentInfo?.name,
+        cus_email: paymentInfo?.email,
+        cus_phoneNumber: paymentInfo?.phoneNumber,
+        driversLicense: paymentInfo?.driversLicense,
+        product_name: paymentInfo?.bookingDetails?.carDetails?.make || "Car",
+        amount: paymentInfo?.price,
+        currency: paymentInfo?.currency || "BDT",
+        paymentId: trxId,
+        startDate: paymentInfo.bookingDetails?.startDate,
+        endDate: paymentInfo.bookingDetails?.endDate,
+        bookingDetailsId: paymentInfo.bookingDetails?._id,
+        location: paymentInfo.bookingDetails?.location,
+        status: paymentInfo.bookingDetails?.status,
+        includedDriver: paymentInfo.bookingDetails?.includedDriver,
+        carDetails: paymentInfo.bookingDetails.carDetails
+      }
+      const result = await bookingsCollection.insertOne(saveData)
+      if (result) {
+        res.send({
+          paymentUrl: response.data.GatewayPageURL,
+        });
+      }
+    })
+    // success-payment
+    app.post("/success-booking", async (req, res) => {
+      const successData = req.body;
+      // console.log(successData);
+      if (successData.status !== "VALID") {
+        throw new Error("unauthorize payment , invalid payment")
+      }
+      // update the database
+      const query = {
+        paymentId: successData.tran_id
+      }
+      const update = {
+        $set: {
+          status: "Success",
+          tran_date: successData.tran_date,
+          card_type: successData.card_type,
+        }
+      }
+      const updateData = await bookingsCollection.updateOne(query, update)
+      console.log(updateData);
+      res.redirect("http://localhost:5173/success")
+    })
+
+
+
+    // membarship-------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
