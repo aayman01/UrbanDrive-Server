@@ -44,7 +44,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
-
+     
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
@@ -53,7 +53,7 @@ async function run() {
     const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
     const hostCarCollection = client.db("urbanDrive").collection("hostCar");
     const favoriteCarsCollection = client.db("urbanDrive").collection("favoriteCars");
-
+    await carsCollection.createIndex({ location: "2dsphere" });
    
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
@@ -65,7 +65,6 @@ async function run() {
       const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
       const sortOption = req.query.sort || "";
       const seatCount = parseInt(req.query.seatCount) || null;
-      const driver = req.query.driver || "";
       const homePickup = req.query.homePickup || "";
 
       try {
@@ -76,9 +75,6 @@ async function run() {
           // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
           price: { $gte: minPrice, $lte: maxPrice },
           ...(seatCount && { seatCount: { $gte: seatCount } }),
-          ...(driver && {
-            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
-          }),
           ...(homePickup && {
             home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
           }),
@@ -110,7 +106,7 @@ async function run() {
         const totalPages = Math.ceil(totalCars / limit);
 
         // Send the paginated data along with totalPages and totalCars
-        console.log("Incoming query parameters:", req.query);
+        // console.log("Incoming query parameters:", req.query);
 
         res.json({ Cars, totalCars, totalPages, totalCars, currentPage: page });
       } catch (error) {
@@ -120,6 +116,8 @@ async function run() {
 
     app.get("/SearchCars", async (req, res) => {
       const { lng, lat, maxDistance, location } = req.query;
+      console.log("Request Params:", req.query);
+
     
       try {
         let query = {};
@@ -145,6 +143,7 @@ async function run() {
         res.json(cars);
         
       } catch (error) {
+        console.log("Error fetching cars:", error);
         res.status(500).json({ message: "Server error", error });
       }
     });
