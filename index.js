@@ -5,6 +5,7 @@ require("dotenv").config();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
+const { default: axios } = require("axios");
 
 const app = express();
 const port = process.env.PORT || 8000;
@@ -12,7 +13,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
 app.use(express.json());
-app.use(express.json({ limit: '10mb' })); 
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -29,14 +30,17 @@ const client = new MongoClient(uri, {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   host: 'smtp.gmail.com',
-  port: 587, 
-  secure: false, 
+  port: 587,
+  secure: false,
   auth: {
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS, 
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASS;
+const is_live = false //true for live, false for sandbox
 
 async function run() {
   try {
@@ -60,7 +64,9 @@ async function run() {
       .collection("favoriteCars");
     const reviewsCollection = client.db("urbanDrive").collection("reviews");
     await carsCollection.createIndex({ location: "2dsphere" });
-    
+
+    const paymentSuccessMemberships = client.db("urbanDrive").collection("successMemberships");//payment success membership **
+
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
       const limit = parseInt(req.query.limit) || 6;
@@ -420,8 +426,10 @@ async function run() {
           query = {};
         }
 
+
         const cars = await carsCollection.find(query).toArray();
         res.json(cars);
+
       } catch (error) {
         console.log("Error fetching cars:", error);
         res.status(500).json({ message: "Server error", error });
@@ -472,19 +480,20 @@ async function run() {
     // get membership data
     app.get("/memberships", async (req, res) => {
       const data = await memberships.find().toArray();
-      res.send(data);
-    });
+      res.send(data)
+    })
 
-    app.get("/favoritesCars/:email", async (req, res) => {
+    app.get('/favoritesCars/:email', async (req, res) => {
       const email = req.params.email;
       const result = await favoriteCarsCollection.find({ email }).toArray();
-      console.log("result:", result);
+      console.log('result:', result)
       if (result) {
         res.send(result);
       } else {
-        res.status(404).send({ message: "User not found" });
+        res.status(404).send({ message: 'User not found' });
       }
-    });
+
+    })
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -984,9 +993,9 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "http://localhost:8000/success-booking",
-        fail_url: "http://localhost:8000/fail",
-        cancel_url: "http://localhost:8000/cancel",
+        success_url: "https://urban-driveserver.vercel.app/success-booking",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1054,8 +1063,8 @@ async function run() {
         },
       };
       const updateData = await bookingsCollection.updateOne(query, update);
-      console.log(updateData);
-      res.redirect("http://localhost:5173/success");
+      // console.log(updateData);
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
     });
 
     // membarship-------------------------
@@ -1068,9 +1077,9 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "http://localhost:8000/success-payment",
-        fail_url: "http://localhost:8000/fail",
-        cancel_url: "http://localhost:8000/cancel",
+        success_url: "https://urban-driveserver.vercel.app/success-payment",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1136,16 +1145,16 @@ async function run() {
         query,
         update
       );
-      console.log(updateData);
-      res.redirect("http://localhost:5173/success");
+      // console.log(updateData);
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
-      res.redirect("http://localhost:5173/fail");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
     });
     // cancel-payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("http://localhost:5173/cancel");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
     });
 
     // get paymentSuccess data
