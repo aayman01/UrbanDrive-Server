@@ -28,6 +28,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
 // nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
