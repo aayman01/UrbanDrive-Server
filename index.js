@@ -552,7 +552,7 @@ async function run() {
 
 
 
-    // membarship-------------------------
+    // membarship----------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
