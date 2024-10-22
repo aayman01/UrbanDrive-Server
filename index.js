@@ -273,7 +273,7 @@ async function run() {
           .status(201)
           .json({ success: true, message: "Review submitted successfully" });
       } catch (error) {
-        console.error("Error submitting review:", error);
+        // console.error("Error submitting review:", error);
         res
           .status(500)
           .json({ success: false, message: "Failed to submit review" });
@@ -286,8 +286,8 @@ async function run() {
         const reviews = await reviewsCollection.find().toArray();
         res.json(reviews);
       } catch (error) {
-        console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews" });
+        // console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews",error });
       }
     });
 
@@ -338,8 +338,8 @@ async function run() {
           },
         });
       } catch (error) {
-        console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews" });
+        // console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews",error });
       }
     });
 
@@ -421,7 +421,7 @@ async function run() {
               $maxDistance: parseInt(maxDistance) || 5000,
             },
           };
-          console.log("Coordinates for search:", coordinates);
+          // console.log("Coordinates for search:", coordinates);
         } else if (location === "anywhere") {
           query = {};
         }
@@ -431,7 +431,7 @@ async function run() {
         res.json(cars);
 
       } catch (error) {
-        console.log("Error fetching cars:", error);
+        // console.log("Error fetching cars:", error);
         res.status(500).json({ message: "Server error", error });
       }
     });
@@ -528,8 +528,8 @@ async function run() {
         );
         res.send(favoriteCar);
       } catch (error) {
-        console.error("Error adding to favorites:", error);
-        res.status(500).send({ message: "Internal server error" });
+        // console.error("Error adding to favorites:", error);
+        res.status(500).send({ message: "Internal server error",error });
       }
     });
 
@@ -623,7 +623,7 @@ async function run() {
 
         res.send({ message: "Car removed from favorites successfully" });
       } catch (error) {
-        console.error("Error removing from favorites:", error);
+        // console.error("Error removing from favorites:", error);
         res.status(500).send({ message: "Internal server error" });
       }
     });
@@ -735,7 +735,7 @@ async function run() {
           membershipsinfo,
         });
       } catch (error) {
-        console.error("Error saving membership/payment info:", error);
+        // console.error("Error saving membership/payment info:", error);
         res.status(500).send("Server error");
       }
     });
@@ -779,7 +779,7 @@ async function run() {
         const bookings = await bookingsCollection.find({}).toArray();
         res.send(bookings);
       } catch (error) {
-        console.error("Error fetching bookings:", error);
+        // console.error("Error fetching bookings:", error);
         res
           .status(500)
           .send({ success: false, error: "Failed to fetch bookings" });
@@ -808,7 +808,7 @@ async function run() {
             .send({ success: false, message: "Booking not found" });
         }
       } catch (error) {
-        console.error("Error fetching booking:", error);
+        // console.error("Error fetching booking:", error);
         res
           .status(500)
           .send({ success: false, error: "Failed to fetch booking" });
@@ -860,7 +860,7 @@ async function run() {
 
         res.send({ success: true, message: "Booking updated successfully" });
       } catch (error) {
-        console.error("Error updating booking:", error);
+        // console.error("Error updating booking:", error);
         res
           .status(500)
           .send({ success: false, error: "Failed to update booking" });
@@ -903,7 +903,7 @@ async function run() {
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-          console.error("Error sending verification email:", error);
+          // console.error("Error sending verification email:", error);
           res
             .status(500)
             .send({
@@ -911,7 +911,7 @@ async function run() {
               message: "Error sending verification email",
             });
         } else {
-          console.log("Verification email sent:", info.response);
+          // console.log("Verification email sent:", info.response);
           res.send({ success: true, message: "Verification email sent" });
         }
       });
@@ -1253,6 +1253,15 @@ async function run() {
     app.get("/allBookings", async (req, res) => {
       const result = await bookingsCollection.find().toArray();
       res.send(result);
+    });
+
+    app.get("/recent-bookings", async (req, res) => {
+      const recentBookings = await bookingsCollection
+        .find()
+        .sort({ startDate: -1 })
+        .limit(4)
+        .toArray();
+      res.send(recentBookings);
     });
 
     // await client.db("admin").command({ ping: 1 });
