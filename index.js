@@ -51,6 +51,7 @@ async function run() {
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
+    const SuccessBookingsCollection = client.db("urbanDrive").collection("bookingsSuccess");
     const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client.db("urbanDrive").collection("membershipsInfo");
@@ -520,7 +521,7 @@ async function run() {
         includedDriver: paymentInfo.bookingDetails?.includedDriver,
         carDetails: paymentInfo?.bookingDetails?.carDetails
       }
-      const result = await bookingsCollection.insertOne(saveData)
+      const result = await SuccessBookingsCollection.insertOne(saveData)
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
@@ -543,14 +544,27 @@ async function run() {
           status: "Success",
           tran_date: successData.tran_date,
           card_type: successData.card_type,
+          hostIsApproved: "pending"
         }
       }
-      const updateData = await bookingsCollection.updateOne(query, update)
+      const updateData = await SuccessBookingsCollection.updateOne(query, update)
       console.log(updateData);
       res.redirect("http://localhost:5173/success")
     })
 
+// get paymentSuccess data
+app.get('/bookings-data', async (req, res) => {
+  const result = await SuccessBookingsCollection.find().toArray()
+  res.send(result)
+})
 
+// get payment history email
+app.get("/myBookingHistory/:email", async (req, res) => {
+  const email = req.params.email;
+  const query = { email: email };
+  const result = await SuccessBookingsCollection.find(query).toArray();
+  res.send(result);
+});
 
     // membarship----------------------
     app.post("/create-payment", async (req, res) => {
@@ -599,7 +613,7 @@ async function run() {
         status: "Pending",
         expiryDate: paymentInfo.expiryDate,
         purchaseDate: paymentInfo.purchaseDate,
-        planName:paymentInfo.planName
+        planName: paymentInfo.planName
       }
       const result = await paymentSuccessMemberships.insertOne(saveData)
       if (result) {
