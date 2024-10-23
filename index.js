@@ -993,9 +993,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "https://urban-driveserver.vercel.app/success-booking",
-        fail_url: "https://urban-driveserver.vercel.app/fail",
-        cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        // success_url: "https://urban-driveserver.vercel.app/success-booking",
+        success_url: "http://localhost:8000/success-booking",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
+        fail_url: "http://localhost:8000/fail",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        cancel_url: "http://localhost:8000/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1064,7 +1067,8 @@ async function run() {
       };
       const updateData = await bookingsCollection.updateOne(query, update);
       // console.log(updateData);
-      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      res.redirect("http://localhost:5173/success");
     });
 
     // membarship-------------------------
@@ -1077,9 +1081,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "https://urban-driveserver.vercel.app/success-payment",
-        fail_url: "https://urban-driveserver.vercel.app/fail",
-        cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        success_url: "http://localhost:8000/success-payment",
+        // success_url: "https://urban-driveserver.vercel.app/success-payment",
+        fail_url: "http://localhost:8000/fail",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
+        cancel_url: "http://localhost:8000/cancel",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1146,15 +1153,18 @@ async function run() {
         update
       );
       // console.log(updateData);
-      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      res.redirect("http://localhost:5173/success");
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
-      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
+      res.redirect("http://localhost:5173/fail");
     });
     // cancel-payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
+      res.redirect("http://localhost:5173/cancel");
     });
 
     // get paymentSuccess data
