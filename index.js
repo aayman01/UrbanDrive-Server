@@ -1004,8 +1004,11 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
+        // success_url: "https://urban-driveserver.vercel.app/success-booking",
         success_url: "http://localhost:8000/success-booking",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
         fail_url: "http://localhost:8000/fail",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
         cancel_url: "http://localhost:8000/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
@@ -1080,24 +1083,11 @@ async function run() {
       }
       const updateData = await SuccessBookingsCollection.updateOne(query, update)
       // console.log(updateData);
-      res.redirect("http://localhost:5173/success")
-    })
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      res.redirect("http://localhost:5173/success");
+    });
 
-// get paymentSuccess data
-app.get('/bookings-data', async (req, res) => {
-  const result = await SuccessBookingsCollection.find().toArray()
-  res.send(result)
-})
-
-// get payment history email
-app.get("/myBookingHistory/:email", async (req, res) => {
-  const email = req.params.email;
-  const query = { email: email };
-  const result = await SuccessBookingsCollection.find(query).toArray();
-  res.send(result);
-});
-
-    // membarship----------------------
+    // membarship-------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
@@ -1108,8 +1098,11 @@ app.get("/myBookingHistory/:email", async (req, res) => {
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
         success_url: "http://localhost:8000/success-payment",
+        // success_url: "https://urban-driveserver.vercel.app/success-payment",
         fail_url: "http://localhost:8000/fail",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
         cancel_url: "http://localhost:8000/cancel",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1176,14 +1169,17 @@ app.get("/myBookingHistory/:email", async (req, res) => {
         update
       );
       // console.log(updateData);
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
       res.redirect("http://localhost:5173/success");
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
       res.redirect("http://localhost:5173/fail");
     });
     // cancel-payment
     app.post("/cancel", async (req, res) => {
+      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
       res.redirect("http://localhost:5173/cancel");
     });
 
