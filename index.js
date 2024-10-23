@@ -777,7 +777,7 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       try {
         const bookingData = req.body;
-        const result = await bookingsCollection.insertOne(bookingData);
+        const result = await SuccessBookingsCollection.insertOne(bookingData);
         res.send({ success: true, bookingId: result.insertedId });
       } catch (error) {
         console.error("Error creating booking:", error);
@@ -788,7 +788,7 @@ async function run() {
     });
     app.get("/bookings", async (req, res) => {
       try {
-        const bookings = await bookingsCollection.find({}).toArray();
+        const bookings = await SuccessBookingsCollection.find({}).toArray();
         res.send(bookings);
       } catch (error) {
         // console.error("Error fetching bookings:", error);
@@ -809,7 +809,7 @@ async function run() {
             .send({ success: false, message: "Invalid booking ID format" });
         }
 
-        const booking = await bookingsCollection.findOne({
+        const booking = await SuccessBookingsCollection.findOne({
           _id: new ObjectId(bookingId),
         });
         if (booking) {
@@ -859,7 +859,7 @@ async function run() {
           paymentMethod,
         };
 
-        const result = await bookingsCollection.updateOne(
+        const result = await SuccessBookingsCollection.updateOne(
           { _id: new ObjectId(bookingId) },
           { $set: updatedBooking }
         );
@@ -1290,7 +1290,7 @@ async function run() {
     });
     // get all bookings
     app.get("/allBookings", async (req, res) => {
-      const result = await bookingsCollection.find().toArray();
+      const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
     });
 
@@ -1302,11 +1302,15 @@ async function run() {
         .toArray();
       res.send(recentBookings);
     });
+    app.get("/bookings-data", async (req, res) => {
+      const result = await SuccessBookingsCollection.find().toArray();
+      res.send(result);
+    });
 
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
