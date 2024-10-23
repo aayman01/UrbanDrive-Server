@@ -51,9 +51,8 @@ async function run() {
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
-    const paymentHistoryCollection = client
-      .db("urbanDrive")
-      .collection("paymentHistory");
+    const SuccessBookingsCollection = client.db("urbanDrive").collection("bookingsSuccess");
+    const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client
       .db("urbanDrive")
@@ -594,6 +593,19 @@ async function run() {
         res.status(500).send({ message: "Failed to update profile" });
       }
     });
+    app.patch('/update-plan', async (req, res) => {
+      const { email, planName } = req.body;
+      // console.log('req.body:',req.body);
+      try {
+        const result = await usersCollection.updateOne(
+          { email: email }, // Find the user by email
+          { $set: { planName: planName } } // Update the planName
+        );
+        res.status(200).send({ success: true, message: "Plan name updated successfully" });
+      } catch (error) {
+        res.status(500).send({ success: false, message: "Failed to update plan name", error });
+      }
+    });
     app.delete("/favoritesCars/:id", async (req, res) => {
       const carId = req.params.id;
       // console.log('carid:',carId)
@@ -986,7 +998,6 @@ async function run() {
     app.post("/booking-create-payment", async (req, res) => {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
-      // console.log(paymentInfo);
       const intentData = {
         store_id,
         store_passwd,
@@ -1008,7 +1019,7 @@ async function run() {
         cus_country: "Bangladesh",
         cus_phone: "01711111111",
         shipping_method: "NO",
-        product_name: paymentInfo?.carDetails?.make || "car",
+        product_name: paymentInfo?.make || "car",
         product_category: "General",
         product_profile: "general",
       };
@@ -1039,8 +1050,12 @@ async function run() {
         status: paymentInfo.bookingDetails?.status,
         includedDriver: paymentInfo.bookingDetails?.includedDriver,
         carDetails: paymentInfo?.bookingDetails?.carDetails,
-      };
-      const result = await bookingsCollection.insertOne(saveData);
+        hostName: paymentInfo?.hostName,
+        hostEmail: paymentInfo?.hostEmail,
+        model: paymentInfo?.model,
+        make: paymentInfo?.make,
+      }
+      const result = await SuccessBookingsCollection.insertOne(saveData)
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
@@ -1063,9 +1078,10 @@ async function run() {
           status: "Success",
           tran_date: successData.tran_date,
           card_type: successData.card_type,
-        },
-      };
-      const updateData = await bookingsCollection.updateOne(query, update);
+          hostIsApproved: "pending"
+        }
+      }
+      const updateData = await SuccessBookingsCollection.updateOne(query, update)
       // console.log(updateData);
       // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
       res.redirect("http://localhost:5173/success");
@@ -1122,9 +1138,9 @@ async function run() {
         status: "Pending",
         expiryDate: paymentInfo.expiryDate,
         purchaseDate: paymentInfo.purchaseDate,
-        planName: paymentInfo.planName,
-      };
-      const result = await paymentSuccessMemberships.insertOne(saveData);
+        planName: paymentInfo.planName
+      }
+      const result = await paymentSuccessMemberships.insertOne(saveData)
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
