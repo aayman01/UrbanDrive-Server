@@ -985,7 +985,6 @@ async function run() {
     app.post("/booking-create-payment", async (req, res) => {
       const paymentInfo = req.body;
       const trxId = new ObjectId().toString();
-      // console.log(paymentInfo);
       const intentData = {
         store_id,
         store_passwd,
