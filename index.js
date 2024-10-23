@@ -753,15 +753,23 @@ async function run() {
     });
     // get all payment
     app.get("/paymentHistory", async (req, res) => {
-      const result = await paymentHistoryCollection.find().toArray();
+      const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
     });
 
-    // get payment history email
+    // get payment customer payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await paymentHistoryCollection.find(query).toArray();
+      const result = await SuccessBookingsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // get host payment history
+    app.get("/hostHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { hostEmail: email };
+      const result = await SuccessBookingsCollection.find(query).toArray();
       res.send(result);
     });
 
