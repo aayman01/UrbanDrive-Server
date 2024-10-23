@@ -1004,7 +1004,7 @@ async function run() {
         cus_country: "Bangladesh",
         cus_phone: "01711111111",
         shipping_method: "NO",
-        product_name: paymentInfo?.carDetails?.make || "car",
+        product_name: paymentInfo?.make || "car",
         product_category: "General",
         product_profile: "general",
       };
@@ -1034,7 +1034,11 @@ async function run() {
         location: paymentInfo.bookingDetails?.location,
         status: paymentInfo.bookingDetails?.status,
         includedDriver: paymentInfo.bookingDetails?.includedDriver,
-        carDetails: paymentInfo?.bookingDetails?.carDetails
+        carDetails: paymentInfo?.bookingDetails?.carDetails,
+        hostName: paymentInfo?.hostName,
+        hostEmail: paymentInfo?.hostEmail,
+        model: paymentInfo?.model,
+        make: paymentInfo?.make,
       }
       const result = await SuccessBookingsCollection.insertOne(saveData)
       if (result) {
