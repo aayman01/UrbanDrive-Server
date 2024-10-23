@@ -593,6 +593,19 @@ async function run() {
         res.status(500).send({ message: "Failed to update profile" });
       }
     });
+    app.patch('/update-plan', async (req, res) => {
+      const { email, planName } = req.body;
+      // console.log('req.body:',req.body);
+      try {
+        const result = await usersCollection.updateOne(
+          { email: email }, // Find the user by email
+          { $set: { planName: planName } } // Update the planName
+        );
+        res.status(200).send({ success: true, message: "Plan name updated successfully" });
+      } catch (error) {
+        res.status(500).send({ success: false, message: "Failed to update plan name", error });
+      }
+    });
     app.delete("/favoritesCars/:id", async (req, res) => {
       const carId = req.params.id;
       // console.log('carid:',carId)
