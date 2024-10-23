@@ -286,7 +286,7 @@ async function run() {
         res.json(reviews);
       } catch (error) {
         // console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews",error });
+        res.status(500).json({ message: "Failed to fetch reviews", error });
       }
     });
 
@@ -338,7 +338,7 @@ async function run() {
         });
       } catch (error) {
         // console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews",error });
+        res.status(500).json({ message: "Failed to fetch reviews", error });
       }
     });
 
@@ -528,7 +528,7 @@ async function run() {
         res.send(favoriteCar);
       } catch (error) {
         // console.error("Error adding to favorites:", error);
-        res.status(500).send({ message: "Internal server error",error });
+        res.status(500).send({ message: "Internal server error", error });
       }
     });
 
@@ -1087,6 +1087,19 @@ async function run() {
       res.redirect("http://localhost:5173/success");
     });
 
+    // get paymentSuccess data
+    app.get('/bookings-data', async (req, res) => {
+      const result = await SuccessBookingsCollection.find().toArray()
+      res.send(result)
+    })
+
+    // get payment history email
+    app.get("/myBookingHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await SuccessBookingsCollection.find(query).toArray();
+      res.send(result);
+    });
     // membarship-------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
