@@ -1487,7 +1487,7 @@ async function run() {
       const result = await paymentSuccessMemberships.find(query).toArray();
       res.send(result);
     });
-    // -----------------------ssl commarze end----------------
+    // -----------------------ssl commerce end----------------
 
     // admin api
 
