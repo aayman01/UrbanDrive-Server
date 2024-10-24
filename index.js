@@ -40,7 +40,7 @@ const transporter = nodemailer.createTransport({
 
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
-const is_live = false 
+const is_live = false //true for live, false for sandbox
 
 async function run() {
   try {
@@ -51,8 +51,12 @@ async function run() {
     const usersCollection = client.db("urbanDrive").collection("users");
     const carsCollection = client.db("urbanDrive").collection("cars");
     const bookingsCollection = client.db("urbanDrive").collection("bookings");
-    const SuccessBookingsCollection = client.db("urbanDrive").collection("bookingsSuccess");
-    const paymentHistoryCollection = client.db("urbanDrive").collection("paymentHistory");
+    const SuccessBookingsCollection = client
+      .db("urbanDrive")
+      .collection("bookingsSuccess");
+    const paymentHistoryCollection = client
+      .db("urbanDrive")
+      .collection("paymentHistory");
     const memberships = client.db("urbanDrive").collection("memberships");
     const membershipCollection = client
       .db("urbanDrive")
@@ -63,7 +67,9 @@ async function run() {
       .collection("favoriteCars");
     const reviewsCollection = client.db("urbanDrive").collection("reviews");
     await carsCollection.createIndex({ location: "2dsphere" });
-    const paymentSuccessMemberships = client.db("urbanDrive").collection("successMemberships");
+    const paymentSuccessMemberships = client
+      .db("urbanDrive")
+      .collection("successMemberships"); 
     const contactCollection = client.db("urbanDrive").collection("contact");
 
     app.get("/cars", async (req, res) => {
@@ -562,7 +568,7 @@ async function run() {
         res.json(reviews);
       } catch (error) {
         // console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews",error });
+        res.status(500).json({ message: "Failed to fetch reviews", error });
       }
     });
 
@@ -614,7 +620,7 @@ async function run() {
         });
       } catch (error) {
         // console.error("Error fetching reviews:", error);
-        res.status(500).json({ message: "Failed to fetch reviews",error });
+        res.status(500).json({ message: "Failed to fetch reviews", error });
       }
     });
 
@@ -701,10 +707,8 @@ async function run() {
           query = {};
         }
 
-
         const cars = await carsCollection.find(query).toArray();
         res.json(cars);
-
       } catch (error) {
         // console.log("Error fetching cars:", error);
         res.status(500).json({ message: "Server error", error });
@@ -755,20 +759,19 @@ async function run() {
     // get membership data
     app.get("/memberships", async (req, res) => {
       const data = await memberships.find().toArray();
-      res.send(data)
-    })
+      res.send(data);
+    });
 
-    app.get('/favoritesCars/:email', async (req, res) => {
+    app.get("/favoritesCars/:email", async (req, res) => {
       const email = req.params.email;
       const result = await favoriteCarsCollection.find({ email }).toArray();
-      console.log('result:', result)
+      console.log("result:", result);
       if (result) {
         res.send(result);
       } else {
-        res.status(404).send({ message: 'User not found' });
+        res.status(404).send({ message: "User not found" });
       }
-
-    })
+    });
     // user related api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -804,7 +807,7 @@ async function run() {
         res.send(favoriteCar);
       } catch (error) {
         // console.error("Error adding to favorites:", error);
-        res.status(500).send({ message: "Internal server error",error });
+        res.status(500).send({ message: "Internal server error", error });
       }
     });
 
@@ -869,7 +872,7 @@ async function run() {
         res.status(500).send({ message: "Failed to update profile" });
       }
     });
-    app.patch('/update-plan', async (req, res) => {
+    app.patch("/update-plan", async (req, res) => {
       const { email, planName } = req.body;
       // console.log('req.body:',req.body);
       try {
@@ -877,9 +880,17 @@ async function run() {
           { email: email }, // Find the user by email
           { $set: { planName: planName } } // Update the planName
         );
-        res.status(200).send({ success: true, message: "Plan name updated successfully" });
+        res
+          .status(200)
+          .send({ success: true, message: "Plan name updated successfully" });
       } catch (error) {
-        res.status(500).send({ success: false, message: "Failed to update plan name", error });
+        res
+          .status(500)
+          .send({
+            success: false,
+            message: "Failed to update plan name",
+            error,
+          });
       }
     });
     app.delete("/favoritesCars/:id", async (req, res) => {
@@ -996,13 +1007,6 @@ async function run() {
       // and client secret as response`
       res.send({ clientSecret: client_secret });
     });
-    // payment history
-    app.post("/payment", async (req, res) => {
-      const paymentHistory = req.body;
-      const result = await paymentHistoryCollection.insertOne(paymentHistory);
-
-      res.send(result);
-    });
     // Handle membership payment
     app.post("/membership-payment", async (req, res) => {
       const { paymentInfo, membershipInfo } = req.body;
@@ -1029,18 +1033,17 @@ async function run() {
     });
     // get all payment
     app.get("/paymentHistory", async (req, res) => {
-      const result = await paymentHistoryCollection.find().toArray();
+      const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
     });
 
-    // get payment history email
+    // get payment customer payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await paymentHistoryCollection.find(query).toArray();
+      const result = await SuccessBookingsCollection.find(query).toArray();
       res.send(result);
     });
-
 
     app.get("/cars/:id", async (req, res) => {
       const id = req.params.id;
@@ -1053,7 +1056,7 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       try {
         const bookingData = req.body;
-        const result = await bookingsCollection.insertOne(bookingData);
+        const result = await SuccessBookingsCollection.insertOne(bookingData);
         res.send({ success: true, bookingId: result.insertedId });
       } catch (error) {
         console.error("Error creating booking:", error);
@@ -1064,7 +1067,7 @@ async function run() {
     });
     app.get("/bookings", async (req, res) => {
       try {
-        const bookings = await bookingsCollection.find({}).toArray();
+        const bookings = await SuccessBookingsCollection.find({}).toArray();
         res.send(bookings);
       } catch (error) {
         // console.error("Error fetching bookings:", error);
@@ -1085,7 +1088,7 @@ async function run() {
             .send({ success: false, message: "Invalid booking ID format" });
         }
 
-        const booking = await bookingsCollection.findOne({
+        const booking = await SuccessBookingsCollection.findOne({
           _id: new ObjectId(bookingId),
         });
         if (booking) {
@@ -1135,7 +1138,7 @@ async function run() {
           paymentMethod,
         };
 
-        const result = await bookingsCollection.updateOne(
+        const result = await SuccessBookingsCollection.updateOne(
           { _id: new ObjectId(bookingId) },
           { $set: updatedBooking }
         );
@@ -1192,12 +1195,10 @@ async function run() {
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
           // console.error("Error sending verification email:", error);
-          res
-            .status(500)
-            .send({
-              success: false,
-              message: "Error sending verification email",
-            });
+          res.status(500).send({
+            success: false,
+            message: "Error sending verification email",
+          });
         } else {
           // console.log("Verification email sent:", info.response);
           res.send({ success: true, message: "Verification email sent" });
@@ -1225,12 +1226,10 @@ async function run() {
         );
         res.send({ success: true, message: "Email verified successfully" });
       } else {
-        res
-          .status(400)
-          .send({
-            success: false,
-            message: "Invalid or expired verification code",
-          });
+        res.status(400).send({
+          success: false,
+          message: "Invalid or expired verification code",
+        });
       }
     });
 
@@ -1330,8 +1329,8 @@ async function run() {
         hostEmail: paymentInfo?.hostEmail,
         model: paymentInfo?.model,
         make: paymentInfo?.make,
-      }
-      const result = await SuccessBookingsCollection.insertOne(saveData)
+      };
+      const result = await SuccessBookingsCollection.insertOne(saveData);
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
@@ -1354,15 +1353,31 @@ async function run() {
           status: "Success",
           tran_date: successData.tran_date,
           card_type: successData.card_type,
-          hostIsApproved: "pending"
-        }
-      }
-      const updateData = await SuccessBookingsCollection.updateOne(query, update)
+          hostIsApproved: "pending",
+        },
+      };
+      const updateData = await SuccessBookingsCollection.updateOne(
+        query,
+        update
+      );
       // console.log(updateData);
       // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
       res.redirect("http://localhost:5173/success");
     });
 
+    // get paymentSuccess data
+    app.get("/bookings-data", async (req, res) => {
+      const result = await SuccessBookingsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get payment history email
+    app.get("/myBookingHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await SuccessBookingsCollection.find(query).toArray();
+      res.send(result);
+    });
     // membarship-------------------------
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
@@ -1414,9 +1429,9 @@ async function run() {
         status: "Pending",
         expiryDate: paymentInfo.expiryDate,
         purchaseDate: paymentInfo.purchaseDate,
-        planName: paymentInfo.planName
-      }
-      const result = await paymentSuccessMemberships.insertOne(saveData)
+        planName: paymentInfo.planName,
+      };
+      const result = await paymentSuccessMemberships.insertOne(saveData);
       if (result) {
         res.send({
           paymentUrl: response.data.GatewayPageURL,
@@ -1553,7 +1568,7 @@ async function run() {
     });
     // get all bookings
     app.get("/allBookings", async (req, res) => {
-      const result = await bookingsCollection.find().toArray();
+      const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
     });
 
@@ -1565,11 +1580,25 @@ async function run() {
         .toArray();
       res.send(recentBookings);
     });
+    app.get("/bookings-data", async (req, res) => {
+      const result = await SuccessBookingsCollection.find().toArray();
+      res.send(result);
+    });
 
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+    // .....host api......
+
+    // get host payment history
+    app.get("/hostHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { hostEmail: email };
+      const result = await SuccessBookingsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
