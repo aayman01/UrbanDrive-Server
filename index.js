@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 const { default: axios } = require("axios");
-
+const StreamChat = require('stream-chat').StreamChat;
 const app = express();
 const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -37,6 +37,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+// streamChat client
+const serverClient = StreamChat.getInstance(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
 
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
@@ -1594,6 +1597,80 @@ async function run() {
       const result = await SuccessBookingsCollection.find(query).toArray();
       res.send(result);
     });
+
+
+// 
+app.post('/chat/token', async (req, res) => {
+  const { userId } = req.body;
+  try {
+    const token = serverClient.createToken(userId);
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Error generating chat token' });
+      }
+    });
+
+   // Add this near your other Stream Chat related code
+app.post('/chat/setup-support', async (req, res) => {
+  try {
+    // Create support agent user if it doesn't exist
+    await serverClient.upsertUser({
+      id: 'support-agent',
+      name: 'Customer Support',
+      role: 'admin',
+    });
+
+    res.json({ message: 'Support agent setup successful' });
+  } catch (error) {
+    console.error('Error setting up support agent:', error);
+      res.status(500).json({ error: 'Error setting up support agent' });
+    }
+  }); 
+
+
+  // Add admin token generation
+app.post('/chat/admin-token', async (req, res) => {
+  try {
+    // Verify if the user is an admin (implement your own auth check)
+    // if (!isAdmin(req.user)) {
+    //   return res.status(403).json({ error: 'Unauthorized' });
+    // }
+
+    const token = serverClient.createToken('support-agent');
+    res.json({ token });
+  } catch (error) {
+    console.error('Error generating admin token:', error);
+    res.status(500).json({ error: 'Error generating admin token' });
+  }
+});
+
+// // Add this endpoint for user tokens
+// app.post('/chat/token', async (req, res) => {
+//   const { userId } = req.body;
+//   try {
+//     const token = serverClient.createToken(userId);
+//     res.json({ token });
+//   } catch (error) {
+//     console.error('Error generating user token:', error);
+//     res.status(500).json({ error: 'Error generating chat token' });
+//   }
+// });
+
+// Add user verification endpoint
+app.post('/chat/verify-access', async (req, res) => {
+  const { userId } = req.body;
+  try {
+    // Check if user has active membership or is allowed to chat
+    const user = await usersCollection.findOne({ uid: userId });
+    const hasAccess = user && (user.role === 'premium' || user.role === 'member');
+    
+    res.json({ hasAccess });
+  } catch (error) {
+    console.error('Error verifying chat access:', error);
+    res.status(500).json({ error: 'Error verifying chat access' });
+    }
+  });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
