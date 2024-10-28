@@ -67,10 +67,286 @@ async function run() {
       .collection("favoriteCars");
     const reviewsCollection = client.db("urbanDrive").collection("reviews");
     await carsCollection.createIndex({ location: "2dsphere" });
-
     const paymentSuccessMemberships = client
       .db("urbanDrive")
-      .collection("successMemberships"); //payment success membership **
+      .collection("successMemberships");
+    const contactCollection = client.db("urbanDrive").collection("contact");
+
+    app.get("/cars", async (req, res) => {
+      const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
+      const limit = parseInt(req.query.limit) || 6;
+      const skip = (page - 1) * limit;
+
+      const categoryName = req.query.category || "";
+      const minPrice = parseFloat(req.query.minPrice) || 0;
+      const maxPrice =
+        parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+      const sortOption = req.query.sort || "";
+      const seatCount = parseInt(req.query.seatCount) || null;
+      const driver = req.query.driver || "";
+      const homePickup = req.query.homePickup || "";
+
+      try {
+        const query = {
+          ...(categoryName && {
+            category: { $regex: categoryName, $options: "i" },
+          }),
+          // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+          price: { $gte: minPrice, $lte: maxPrice },
+          ...(seatCount && { seatCount: { $gte: seatCount } }),
+          ...(driver && {
+            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
+          ...(homePickup && {
+            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+          }),
+        };
+        let sort = {};
+        if (sortOption === "price-asc") {
+          sort = { price: 1 }; // Sort by price ascending
+        } else if (sortOption === "price-desc") {
+          sort = { price: -1 }; // Sort by price descending
+        } else if (sortOption === "date-desc") {
+          sort = { date: -1 }; // Sort by date descending (newest first)
+        } else if (sortOption === "date-asc") {
+          sort = { date: 1 };
+        }
+
+        // Fetch total cars count without pagination
+        const totalCars = await carsCollection.countDocuments();
+        // console.log("totalcars:", totalCars);
+
+        // Fetch cars with pagination
+
+        const Cars = await carsCollection
+          .find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+        // Calculate total pages
+        const totalPages = Math.ceil(totalCars / limit);
+
+        // calculate average rating
+        const CarsWithRatings = await Promise.all(
+          Cars.map(async (car) => {
+            const reviews = await reviewsCollection
+              .find({ carId: car._id.toString() })
+              .toArray();
+            const totalRating = reviews.reduce(
+              (sum, review) => sum + review.rating,
+              0
+            );
+            const averageRating =
+              reviews.length > 0 ? totalRating / reviews.length : 0;
+            return { ...car, averageRating, reviewCount: reviews.length };
+          })
+        );
+
+        // Include category averages if they exist, otherwise use default values
+        const categoryAverages = CarsWithRatings.categoryAverages || {
+          cleanliness: 0,
+          communication: 0,
+          comfort: 0,
+          convenience: 0,
+        };
+
+        // Send the paginated data along with totalPages and totalCars
+        // console.log("Incoming query parameters:", req.query);
+
+        res.json({
+          Cars: CarsWithRatings,
+          totalCars,
+          totalPages,
+          totalCars,
+          currentPage: page,
+          categoryAverages,
+        });
+      } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+      }
+    });
+    app.get("/cars/:id", async (req, res) => {
+      try {
+        const carId = req.params.id;
+        const car = await carsCollection.findOne({ _id: new ObjectId(carId) });
+        if (!car) {
+          return res.status(404).json({ message: "Car not found" });
+        }
+        // Fetch reviews for this car
+        const reviews = await reviewsCollection
+          .find({ carId: carId.toString() })
+          .toArray();
+        const totalRating = reviews.reduce(
+          (sum, review) => sum + review.rating,
+          0
+        );
+        const averageRating =
+          reviews.length > 0 ? totalRating / reviews.length : 0;
+        // Include category averages if they exist, otherwise use default values
+        const categoryAverages = car.categoryAverages || {
+          cleanliness: 0,
+          communication: 0,
+          comfort: 0,
+          convenience: 0,
+        };
+
+        // Add average rating and review count to the car object
+        const carWithRating = {
+          ...car,
+          averageRating,
+          reviewCount: reviews.length,
+          categoryAverages,
+        };
+
+        res.json(carWithRating);
+      } catch (error) {
+        console.error("Error fetching car details:", error);
+        res.status(500).json({ message: "Failed to fetch car details" });
+      }
+    });
+
+    app.post("/reviews", async (req, res) => {
+      try {
+        const reviewData = req.body;
+        // const existingReview = await reviewsCollection.findOne({
+        //   carId: reviewData.carId,
+        //   userId: reviewData.userId
+        // })
+        // if(existingReview){
+        //   return res.status(400).json({
+        //     success: false,
+        //     message: "You already reviewed this car" });
+        // }
+
+        reviewData.createdAt = new Date();
+        // Store carId as a string
+        reviewData.carId = reviewData.carId.toString();
+        const result = await reviewsCollection.insertOne(reviewData);
+        // Update the car's average rating
+        const carId = reviewData.carId;
+        const allReviews = await reviewsCollection
+          .find({ carId: carId })
+          .toArray();
+        const totalRating = allReviews.reduce(
+          (sum, review) => sum + review.rating,
+          0
+        );
+        const averageRating = totalRating / allReviews.length;
+
+        // category wise rating
+        const categoryRatings = {
+          Cleanliness: 0,
+          Communication: 0,
+          Comfort: 0,
+          Convenience: 0,
+        };
+
+        allReviews.forEach((review) => {
+          if (review.ratingDetails) {
+            Object.keys(categoryRatings).forEach((category) => {
+              categoryRatings[category] += review.ratingDetails[category] || 0;
+            });
+          }
+        });
+
+        // Calculate final category averages
+        Object.keys(categoryRatings).forEach((category) => {
+          categoryRatings[category] =
+            categoryRatings[category] / allReviews.length;
+        });
+
+        // allReviews.forEach(review =>{
+        //   categoryRatings.Cleanliness += review.ratingDetails?.Cleanliness || 0;
+        //   categoryRatings.Communication += review.ratingDetails?.Communication || 0;
+        //   categoryRatings.Comfort += review.ratingDetails?.Comfort || 0;
+        //   categoryRatings.Convenience += review.ratingDetails?.Convenience || 0;
+        // })
+
+        await carsCollection.updateOne(
+          { _id: new ObjectId(carId) },
+          {
+            $set: {
+              averageRating,
+              reviewCount: allReviews.length,
+              categoryRatings,
+            },
+          }
+        );
+
+        res
+          .status(201)
+          .json({ success: true, message: "Review submitted successfully" });
+      } catch (error) {
+        console.error("Error submitting review:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to submit review" });
+      }
+    });
+
+    // get reviews
+    app.get("/reviews", async (req, res) => {
+      try {
+        const reviews = await reviewsCollection.find().toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews" });
+      }
+    });
+
+    // get reviews by id
+    app.get("/reviews/:carId", async (req, res) => {
+      try {
+        const carId = req.params.carId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const skip = (page - 1) * limit;
+
+        const reviews = await reviewsCollection
+          .find({ carId: carId })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+        // console.log("Found reviews:", reviews.length);
+
+        const totalReviews = await reviewsCollection.countDocuments({
+          carId: carId,
+        });
+        const totalPages = Math.ceil(totalReviews / limit);
+        // console.log("Fetching reviews for carId:", carId);
+
+        const car = await carsCollection.findOne(
+          { _id: new ObjectId(carId) },
+          {
+            projection: {
+              averageRating: 1,
+              reviewCount: 1,
+              categoryRatings: 1,
+            },
+          }
+        );
+        // Adnan Note: Projection is used to get only the specified fields from the database and it is faster than using find()
+
+        res.json({
+          reviews,
+          totalReviews,
+          totalPages,
+          currentPage: page,
+          averageRating: car?.averageRating || 0,
+          categoryRatings: car?.categoryRatings || {
+            cleanliness: 0,
+            communication: 0,
+            convenience: 0,
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Failed to fetch reviews" });
+      }
+    });
 
     app.get("/cars", async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
