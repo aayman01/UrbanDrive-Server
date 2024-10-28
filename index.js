@@ -69,7 +69,7 @@ async function run() {
     await carsCollection.createIndex({ location: "2dsphere" });
     const paymentSuccessMemberships = client
       .db("urbanDrive")
-      .collection("successMemberships"); 
+      .collection("successMemberships");
     const contactCollection = client.db("urbanDrive").collection("contact");
 
     app.get("/cars", async (req, res) => {
@@ -1487,7 +1487,7 @@ async function run() {
       const result = await paymentSuccessMemberships.find(query).toArray();
       res.send(result);
     });
-    // -----------------------ssl commarze end----------------
+    // -----------------------ssl commerce end----------------
 
     // admin api
 
