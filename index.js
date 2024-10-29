@@ -1580,6 +1580,17 @@ async function run() {
         .toArray();
       res.send(recentBookings);
     });
+    // host email recent bookings
+    app.get("/recent-bookings/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { hostEmail: email };
+      const recentBookings = await SuccessBookingsCollection
+        .find(query)
+        .sort({ startDate: -1 })
+        .limit(4)
+        .toArray();
+      res.send(recentBookings);
+    });
     app.get("/bookings-data", async (req, res) => {
       const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
