@@ -169,6 +169,90 @@ async function run() {
         res.status(500).json({ message: "Server error", error });
       }
     });
+
+    // posting cars
+    app.post("/cars", async (req, res) => {
+      try {
+        const carData = req.body;
+        
+        // Validate required fields
+        if (!carData.price || !carData.price_per_day) {
+          return res.status(400).json({
+            success: false,
+            message: "Price is required"
+          });
+        }
+
+        if (!carData.name || !carData.email) {
+          return res.status(400).json({
+            success: false,
+            message: "Host name and email are required"
+          });
+        }
+
+        // Ensure price is a number
+        carData.price = Number(carData.price);
+        carData.price_per_day = Number(carData.price_per_day);
+        
+        if (isNaN(carData.price) || isNaN(carData.price_per_day)) {
+          return res.status(400).json({
+            success: false,
+            message: "Price must be a valid number"
+          });
+        }
+
+        // Log the data being inserted
+        console.log('Inserting car data:', carData);
+
+        const result = await carsCollection.insertOne(carData);
+        
+        if (result.acknowledged) {
+          res.status(201).json({
+            success: true,
+            message: "Car added successfully",
+            carId: result.insertedId
+          });
+        } else {
+          throw new Error("Failed to insert car");
+        }
+      } catch (error) {
+        console.error("Error adding car:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to add car",
+          error: error.message
+        });
+      }
+    });
+
+    // deleting cars
+    app.delete("/hostCar/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await hostCarCollection.deleteOne(query);
+        
+        if (result.deletedCount === 1) {
+          res.status(200).json({
+            success: true,
+            message: "Car deleted successfully from hostCar collection"
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            message: "Car not found in hostCar collection"
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting car from hostCar:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to delete car",
+          error: error.message
+        });
+      }
+    });
+    // get car by id
     app.get("/cars/:id", async (req, res) => {
       try {
         const carId = req.params.id;
@@ -351,100 +435,100 @@ async function run() {
       }
     });
 
-    app.get("/cars", async (req, res) => {
-      const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
-      const limit = parseInt(req.query.limit) || 6;
-      const skip = (page - 1) * limit;
+    // app.get("/cars", async (req, res) => {
+    //   const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
+    //   const limit = parseInt(req.query.limit) || 6;
+    //   const skip = (page - 1) * limit;
 
-      const categoryName = req.query.category || "";
-      const minPrice = parseFloat(req.query.minPrice) || 0;
-      const maxPrice =
-        parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
-      const sortOption = req.query.sort || "";
-      const seatCount = parseInt(req.query.seatCount) || null;
-      const driver = req.query.driver || "";
-      const homePickup = req.query.homePickup || "";
+    //   const categoryName = req.query.category || "";
+    //   const minPrice = parseFloat(req.query.minPrice) || 0;
+    //   const maxPrice =
+    //     parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+    //   const sortOption = req.query.sort || "";
+    //   const seatCount = parseInt(req.query.seatCount) || null;
+    //   const driver = req.query.driver || "";
+    //   const homePickup = req.query.homePickup || "";
 
-      try {
-        const query = {
-          ...(categoryName && {
-            category: { $regex: categoryName, $options: "i" },
-          }),
-          // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-          price: { $gte: minPrice, $lte: maxPrice },
-          ...(seatCount && { seatCount: { $gte: seatCount } }),
-          ...(driver && {
-            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
-          }),
-          ...(homePickup && {
-            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
-          }),
-        };
-        let sort = {};
-        if (sortOption === "price-asc") {
-          sort = { price: 1 }; // Sort by price ascending
-        } else if (sortOption === "price-desc") {
-          sort = { price: -1 }; // Sort by price descending
-        } else if (sortOption === "date-desc") {
-          sort = { date: -1 }; // Sort by date descending (newest first)
-        } else if (sortOption === "date-asc") {
-          sort = { date: 1 };
-        }
+    //   try {
+    //     const query = {
+    //       ...(categoryName && {
+    //         category: { $regex: categoryName, $options: "i" },
+    //       }),
+    //       // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+    //       price: { $gte: minPrice, $lte: maxPrice },
+    //       ...(seatCount && { seatCount: { $gte: seatCount } }),
+    //       ...(driver && {
+    //         driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+    //       }),
+    //       ...(homePickup && {
+    //         home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+    //       }),
+    //     };
+    //     let sort = {};
+    //     if (sortOption === "price-asc") {
+    //       sort = { price: 1 }; // Sort by price ascending
+    //     } else if (sortOption === "price-desc") {
+    //       sort = { price: -1 }; // Sort by price descending
+    //     } else if (sortOption === "date-desc") {
+    //       sort = { date: -1 }; // Sort by date descending (newest first)
+    //     } else if (sortOption === "date-asc") {
+    //       sort = { date: 1 };
+    //     }
 
-        // Fetch total cars count without pagination
-        const totalCars = await carsCollection.countDocuments();
-        // console.log("totalcars:", totalCars);
+    //     // Fetch total cars count without pagination
+    //     const totalCars = await carsCollection.countDocuments();
+    //     // console.log("totalcars:", totalCars);
 
-        // Fetch cars with pagination
+    //     // Fetch cars with pagination
 
-        const Cars = await carsCollection
-          .find(query)
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .toArray();
-        // Calculate total pages
-        const totalPages = Math.ceil(totalCars / limit);
+    //     const Cars = await carsCollection
+    //       .find(query)
+    //       .sort(sort)
+    //       .skip(skip)
+    //       .limit(limit)
+    //       .toArray();
+    //     // Calculate total pages
+    //     const totalPages = Math.ceil(totalCars / limit);
 
-        // calculate average rating
-        const CarsWithRatings = await Promise.all(
-          Cars.map(async (car) => {
-            const reviews = await reviewsCollection
-              .find({ carId: car._id.toString() })
-              .toArray();
-            const totalRating = reviews.reduce(
-              (sum, review) => sum + review.rating,
-              0
-            );
-            const averageRating =
-              reviews.length > 0 ? totalRating / reviews.length : 0;
-            return { ...car, averageRating, reviewCount: reviews.length };
-          })
-        );
+    //     // calculate average rating
+    //     const CarsWithRatings = await Promise.all(
+    //       Cars.map(async (car) => {
+    //         const reviews = await reviewsCollection
+    //           .find({ carId: car._id.toString() })
+    //           .toArray();
+    //         const totalRating = reviews.reduce(
+    //           (sum, review) => sum + review.rating,
+    //           0
+    //         );
+    //         const averageRating =
+    //           reviews.length > 0 ? totalRating / reviews.length : 0;
+    //         return { ...car, averageRating, reviewCount: reviews.length };
+    //       })
+    //     );
 
-        // Include category averages if they exist, otherwise use default values
-        const categoryAverages = CarsWithRatings.categoryAverages || {
-          cleanliness: 0,
-          communication: 0,
-          comfort: 0,
-          convenience: 0,
-        };
+    //     // Include category averages if they exist, otherwise use default values
+    //     const categoryAverages = CarsWithRatings.categoryAverages || {
+    //       cleanliness: 0,
+    //       communication: 0,
+    //       comfort: 0,
+    //       convenience: 0,
+    //     };
 
-        // Send the paginated data along with totalPages and totalCars
-        // console.log("Incoming query parameters:", req.query);
+    //     // Send the paginated data along with totalPages and totalCars
+    //     // console.log("Incoming query parameters:", req.query);
 
-        res.json({
-          Cars: CarsWithRatings,
-          totalCars,
-          totalPages,
-          totalCars,
-          currentPage: page,
-          categoryAverages,
-        });
-      } catch (error) {
-        res.status(500).json({ message: "Server error", error });
-      }
-    });
+    //     res.json({
+    //       Cars: CarsWithRatings,
+    //       totalCars,
+    //       totalPages,
+    //       totalCars,
+    //       currentPage: page,
+    //       categoryAverages,
+    //     });
+    //   } catch (error) {
+    //     res.status(500).json({ message: "Server error", error });
+    //   }
+    // });
     app.get("/cars/:id", async (req, res) => {
       try {
         const carId = req.params.id;
