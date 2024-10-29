@@ -1607,28 +1607,20 @@ async function run() {
     });
     //  updating manages cars todo: change collection Name
     // Update Car API
-    app.put('/car/update/:id', async (req, res) => {
-      const { id } = req.params;
-      const updatedCarData = req.body;
-      console.log(updatedCarData.model, "updated data ");
-      try {
-        const result = await SuccessBookingsCollection.updateOne(
-          { _id:new ObjectId(id) },
-          { $set: {
-            model: updatedCarData.model,
-            amount: updatedCarData.amount
-          } }
-        );
+    app.patch("/updateManageCar/:id", async (req, res) => {
+      const data = req.body;
 
-        if (result.modifiedCount > 0) {
-          res.status(200).json({ message: 'Car details updated successfully' });
-        } else {
-          res.status(404).json({ message: 'Car not found or no changes made' });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to update car details' });
-      }
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          make:data.make,
+          model:data.model,
+          amount:data.amount,
+        },
+      };
+      const result = await SuccessBookingsCollection.updateOne(filter, updateDoc);
+      res.send(result);
     });
     await client.db("admin").command({ ping: 1 });
     console.log(
