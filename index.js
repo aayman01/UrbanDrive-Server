@@ -1279,12 +1279,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        // success_url: "https://urban-driveserver.vercel.app/success-booking",
-        success_url: "http://localhost:8000/success-booking",
-        // fail_url: "https://urban-driveserver.vercel.app/fail",
-        fail_url: "http://localhost:8000/fail",
-        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
-        cancel_url: "http://localhost:8000/cancel",
+        success_url: "https://urban-driveserver.vercel.app/success-booking",
+        // success_url: "http://localhost:8000/success-booking",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        // fail_url: "http://localhost:8000/fail",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        // cancel_url: "http://localhost:8000/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1361,8 +1361,8 @@ async function run() {
         update
       );
       // console.log(updateData);
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
-      res.redirect("http://localhost:5173/success");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("http://localhost:5173/success");
     });
 
     // get paymentSuccess data
@@ -1388,12 +1388,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "http://localhost:8000/success-payment",
-        // success_url: "https://urban-driveserver.vercel.app/success-payment",
-        fail_url: "http://localhost:8000/fail",
-        // fail_url: "https://urban-driveserver.vercel.app/fail",
-        cancel_url: "http://localhost:8000/cancel",
-        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        // success_url: "http://localhost:8000/success-payment",
+        success_url: "https://urban-driveserver.vercel.app/success-payment",
+        // fail_url: "http://localhost:8000/fail",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        // cancel_url: "http://localhost:8000/cancel",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1460,18 +1460,18 @@ async function run() {
         update
       );
       // console.log(updateData);
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
-      res.redirect("http://localhost:5173/success");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("http://localhost:5173/success");
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
-      res.redirect("http://localhost:5173/fail");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
+      // res.redirect("http://localhost:5173/fail");
     });
     // cancel-payment
     app.post("/cancel", async (req, res) => {
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
-      res.redirect("http://localhost:5173/cancel");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
+      // res.redirect("http://localhost:5173/cancel");
     });
 
     // get paymentSuccess data
@@ -1626,6 +1626,22 @@ async function run() {
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+    // app.post("/contact", async (req, res) => {
+    //   const contactData = req.body;
+    //   const result = await contactCollection.insertOne(contactData);
+    //   res.send(result);
+    // });
+
+    //get contact
+    // app.get("/contact", async (req, res) => {
+    //   const result = await contactCollection.find().toArray();
+    //   res.send(result);
+    // });
+
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
