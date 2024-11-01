@@ -24,6 +24,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
+    serverSelectionTimeoutMS: 60000
   },
 });
 // nodemailer
@@ -72,7 +73,7 @@ async function run() {
     await carsCollection.createIndex({ location: "2dsphere" });
     const paymentSuccessMemberships = client
       .db("urbanDrive")
-      .collection("successMemberships"); 
+      .collection("successMemberships");
     const contactCollection = client.db("urbanDrive").collection("contact");
 
     app.get("/cars", async (req, res) => {
@@ -1557,13 +1558,13 @@ async function run() {
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
-      res.redirect("http://localhost:5173/fail");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/fail");
+      // res.redirect("http://localhost:5173/fail");
     });
     // cancel-payment
     app.post("/cancel", async (req, res) => {
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
-      res.redirect("http://localhost:5173/cancel");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/cancel");
+      // res.redirect("http://localhost:5173/cancel");
     });
 
     // get paymentSuccess data
@@ -1579,7 +1580,7 @@ async function run() {
       const result = await paymentSuccessMemberships.find(query).toArray();
       res.send(result);
     });
-    // -----------------------ssl commarze end----------------
+    // -----------------------ssl commerce end----------------
 
     // admin api
 
@@ -1672,6 +1673,17 @@ async function run() {
         .toArray();
       res.send(recentBookings);
     });
+    // host email recent bookings
+    app.get("/recent-bookings/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { hostEmail: email };
+      const recentBookings = await SuccessBookingsCollection
+        .find(query)
+        .sort({ startDate: -1 })
+        .limit(4)
+        .toArray();
+      res.send(recentBookings);
+    });
     app.get("/bookings-data", async (req, res) => {
       const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
@@ -1684,6 +1696,22 @@ async function run() {
       const email = req.params.email;
       const query = { hostEmail: email };
       const result = await SuccessBookingsCollection.find(query).toArray();
+      res.send(result);
+    });
+    //  updating manages cars todo: change collection Name
+    // Update Car API
+    app.patch("/updateManageCar/:id", async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          make:data.make,
+          model:data.model,
+          amount:data.amount,
+        },
+      };
+      const result = await SuccessBookingsCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
@@ -1761,10 +1789,33 @@ app.post('/chat/verify-access', async (req, res) => {
   });
 
 
+     app.post("/contact", async (req, res) => {
+       const contactData = req.body;
+       const result = await contactCollection.insertOne(contactData);
+       res.send(result);
+     });
+
+     
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+    // app.post("/contact", async (req, res) => {
+    //   const contactData = req.body;
+    //   const result = await contactCollection.insertOne(contactData);
+    //   res.send(result);
+    // });
+
+    // get contact
+    app.get("/contact", async (req, res) => {
+      const result = await contactCollection.find().toArray();
+      res.send(result);
+    });
+
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
