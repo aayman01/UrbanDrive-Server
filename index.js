@@ -1581,6 +1581,17 @@ async function run() {
         .toArray();
       res.send(recentBookings);
     });
+    // host email recent bookings
+    app.get("/recent-bookings/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { hostEmail: email };
+      const recentBookings = await SuccessBookingsCollection
+        .find(query)
+        .sort({ startDate: -1 })
+        .limit(4)
+        .toArray();
+      res.send(recentBookings);
+    });
     app.get("/bookings-data", async (req, res) => {
       const result = await SuccessBookingsCollection.find().toArray();
       res.send(result);
@@ -1595,12 +1606,39 @@ async function run() {
       const result = await SuccessBookingsCollection.find(query).toArray();
       res.send(result);
     });
-
-    app.post("/contact", async (req, res) => {
-      const contactData = req.body;
-      const result = await contactCollection.insertOne(contactData);
+    //  updating manages cars todo: change collection Name
+    // Update Car API
+    app.patch("/updateManageCar/:id", async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          make:data.make,
+          model:data.model,
+          amount:data.amount,
+        },
+      };
+      const result = await SuccessBookingsCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
+     app.post("/contact", async (req, res) => {
+       const contactData = req.body;
+       const result = await contactCollection.insertOne(contactData);
+       res.send(result);
+     });
+
+     
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
+    // app.post("/contact", async (req, res) => {
+    //   const contactData = req.body;
+    //   const result = await contactCollection.insertOne(contactData);
+    //   res.send(result);
+    // });
 
     // get contact
     app.get("/contact", async (req, res) => {
