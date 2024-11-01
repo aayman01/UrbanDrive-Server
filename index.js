@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 const { default: axios } = require("axios");
-
+const StreamChat = require('stream-chat').StreamChat;
 const app = express();
 const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -38,6 +38,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+// streamChat client
+const serverClient = StreamChat.getInstance(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
 
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
@@ -167,6 +170,90 @@ async function run() {
         res.status(500).json({ message: "Server error", error });
       }
     });
+
+    // posting cars
+    app.post("/cars", async (req, res) => {
+      try {
+        const carData = req.body;
+        
+        // Validate required fields
+        if (!carData.price || !carData.price_per_day) {
+          return res.status(400).json({
+            success: false,
+            message: "Price is required"
+          });
+        }
+
+        if (!carData.name || !carData.email) {
+          return res.status(400).json({
+            success: false,
+            message: "Host name and email are required"
+          });
+        }
+
+        // Ensure price is a number
+        carData.price = Number(carData.price);
+        carData.price_per_day = Number(carData.price_per_day);
+        
+        if (isNaN(carData.price) || isNaN(carData.price_per_day)) {
+          return res.status(400).json({
+            success: false,
+            message: "Price must be a valid number"
+          });
+        }
+
+        // Log the data being inserted
+        console.log('Inserting car data:', carData);
+
+        const result = await carsCollection.insertOne(carData);
+        
+        if (result.acknowledged) {
+          res.status(201).json({
+            success: true,
+            message: "Car added successfully",
+            carId: result.insertedId
+          });
+        } else {
+          throw new Error("Failed to insert car");
+        }
+      } catch (error) {
+        console.error("Error adding car:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to add car",
+          error: error.message
+        });
+      }
+    });
+
+    // deleting cars
+    app.delete("/hostCar/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await hostCarCollection.deleteOne(query);
+        
+        if (result.deletedCount === 1) {
+          res.status(200).json({
+            success: true,
+            message: "Car deleted successfully from hostCar collection"
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            message: "Car not found in hostCar collection"
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting car from hostCar:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to delete car",
+          error: error.message
+        });
+      }
+    });
+    // get car by id
     app.get("/cars/:id", async (req, res) => {
       try {
         const carId = req.params.id;
@@ -349,100 +436,100 @@ async function run() {
       }
     });
 
-    app.get("/cars", async (req, res) => {
-      const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
-      const limit = parseInt(req.query.limit) || 6;
-      const skip = (page - 1) * limit;
+    // app.get("/cars", async (req, res) => {
+    //   const page = parseInt(req.query.page) || 1; // Default to 1 if not provided
+    //   const limit = parseInt(req.query.limit) || 6;
+    //   const skip = (page - 1) * limit;
 
-      const categoryName = req.query.category || "";
-      const minPrice = parseFloat(req.query.minPrice) || 0;
-      const maxPrice =
-        parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
-      const sortOption = req.query.sort || "";
-      const seatCount = parseInt(req.query.seatCount) || null;
-      const driver = req.query.driver || "";
-      const homePickup = req.query.homePickup || "";
+    //   const categoryName = req.query.category || "";
+    //   const minPrice = parseFloat(req.query.minPrice) || 0;
+    //   const maxPrice =
+    //     parseFloat(req.query.maxPrice) || Number.MAX_SAFE_INTEGER;
+    //   const sortOption = req.query.sort || "";
+    //   const seatCount = parseInt(req.query.seatCount) || null;
+    //   const driver = req.query.driver || "";
+    //   const homePickup = req.query.homePickup || "";
 
-      try {
-        const query = {
-          ...(categoryName && {
-            category: { $regex: categoryName, $options: "i" },
-          }),
-          // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
-          price: { $gte: minPrice, $lte: maxPrice },
-          ...(seatCount && { seatCount: { $gte: seatCount } }),
-          ...(driver && {
-            driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
-          }),
-          ...(homePickup && {
-            home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
-          }),
-        };
-        let sort = {};
-        if (sortOption === "price-asc") {
-          sort = { price: 1 }; // Sort by price ascending
-        } else if (sortOption === "price-desc") {
-          sort = { price: -1 }; // Sort by price descending
-        } else if (sortOption === "date-desc") {
-          sort = { date: -1 }; // Sort by date descending (newest first)
-        } else if (sortOption === "date-asc") {
-          sort = { date: 1 };
-        }
+    //   try {
+    //     const query = {
+    //       ...(categoryName && {
+    //         category: { $regex: categoryName, $options: "i" },
+    //       }),
+    //       // ...(categoryName && { category: { $regex: categoryName, $options: 'i' } }),
+    //       price: { $gte: minPrice, $lte: maxPrice },
+    //       ...(seatCount && { seatCount: { $gte: seatCount } }),
+    //       ...(driver && {
+    //         driver: driver === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+    //       }),
+    //       ...(homePickup && {
+    //         home_pickup: homePickup === "yes" ? "Yes" : "No", // Filter by 'Yes' or 'No'
+    //       }),
+    //     };
+    //     let sort = {};
+    //     if (sortOption === "price-asc") {
+    //       sort = { price: 1 }; // Sort by price ascending
+    //     } else if (sortOption === "price-desc") {
+    //       sort = { price: -1 }; // Sort by price descending
+    //     } else if (sortOption === "date-desc") {
+    //       sort = { date: -1 }; // Sort by date descending (newest first)
+    //     } else if (sortOption === "date-asc") {
+    //       sort = { date: 1 };
+    //     }
 
-        // Fetch total cars count without pagination
-        const totalCars = await carsCollection.countDocuments();
-        // console.log("totalcars:", totalCars);
+    //     // Fetch total cars count without pagination
+    //     const totalCars = await carsCollection.countDocuments();
+    //     // console.log("totalcars:", totalCars);
 
-        // Fetch cars with pagination
+    //     // Fetch cars with pagination
 
-        const Cars = await carsCollection
-          .find(query)
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .toArray();
-        // Calculate total pages
-        const totalPages = Math.ceil(totalCars / limit);
+    //     const Cars = await carsCollection
+    //       .find(query)
+    //       .sort(sort)
+    //       .skip(skip)
+    //       .limit(limit)
+    //       .toArray();
+    //     // Calculate total pages
+    //     const totalPages = Math.ceil(totalCars / limit);
 
-        // calculate average rating
-        const CarsWithRatings = await Promise.all(
-          Cars.map(async (car) => {
-            const reviews = await reviewsCollection
-              .find({ carId: car._id.toString() })
-              .toArray();
-            const totalRating = reviews.reduce(
-              (sum, review) => sum + review.rating,
-              0
-            );
-            const averageRating =
-              reviews.length > 0 ? totalRating / reviews.length : 0;
-            return { ...car, averageRating, reviewCount: reviews.length };
-          })
-        );
+    //     // calculate average rating
+    //     const CarsWithRatings = await Promise.all(
+    //       Cars.map(async (car) => {
+    //         const reviews = await reviewsCollection
+    //           .find({ carId: car._id.toString() })
+    //           .toArray();
+    //         const totalRating = reviews.reduce(
+    //           (sum, review) => sum + review.rating,
+    //           0
+    //         );
+    //         const averageRating =
+    //           reviews.length > 0 ? totalRating / reviews.length : 0;
+    //         return { ...car, averageRating, reviewCount: reviews.length };
+    //       })
+    //     );
 
-        // Include category averages if they exist, otherwise use default values
-        const categoryAverages = CarsWithRatings.categoryAverages || {
-          cleanliness: 0,
-          communication: 0,
-          comfort: 0,
-          convenience: 0,
-        };
+    //     // Include category averages if they exist, otherwise use default values
+    //     const categoryAverages = CarsWithRatings.categoryAverages || {
+    //       cleanliness: 0,
+    //       communication: 0,
+    //       comfort: 0,
+    //       convenience: 0,
+    //     };
 
-        // Send the paginated data along with totalPages and totalCars
-        // console.log("Incoming query parameters:", req.query);
+    //     // Send the paginated data along with totalPages and totalCars
+    //     // console.log("Incoming query parameters:", req.query);
 
-        res.json({
-          Cars: CarsWithRatings,
-          totalCars,
-          totalPages,
-          totalCars,
-          currentPage: page,
-          categoryAverages,
-        });
-      } catch (error) {
-        res.status(500).json({ message: "Server error", error });
-      }
-    });
+    //     res.json({
+    //       Cars: CarsWithRatings,
+    //       totalCars,
+    //       totalPages,
+    //       totalCars,
+    //       currentPage: page,
+    //       categoryAverages,
+    //     });
+    //   } catch (error) {
+    //     res.status(500).json({ message: "Server error", error });
+    //   }
+    // });
     app.get("/cars/:id", async (req, res) => {
       try {
         const carId = req.params.id;
@@ -1111,51 +1198,56 @@ async function run() {
     app.put("/bookings/:bookingId", async (req, res) => {
       try {
         const bookingId = req.params.bookingId;
+        const updateData = req.body;
 
+        // Validate bookingId
         if (!ObjectId.isValid(bookingId)) {
-          return res
-            .status(400)
-            .send({ success: false, message: "Invalid booking ID format" });
+          return res.status(400).json({
+            success: false,
+            message: "Invalid booking ID format"
+          });
         }
 
-        const { email, phoneNumber, paymentMethod } = req.body;
-        // console.log(email, phoneNumber, paymentMethod);
-        // console.log("Request body:", req.body);
-        if (!email || !phoneNumber || !paymentMethod) {
-          return res
-            .status(400)
-            .send({ success: false, message: "Required fields missing." });
+        // Validate required fields
+        if (!updateData.email || !updateData.phoneNumber) {
+          return res.status(400).json({
+            success: false,
+            message: "Email and phone number are required"
+          });
         }
-
-        let driversLicenseUrl = "";
-        if (req.files && req.files.driversLicense) {
-          driversLicenseUrl = await uploadFile(req.files.driversLicense);
-        }
-
-        const updatedBooking = {
-          email,
-          phoneNumber,
-          driversLicense: driversLicenseUrl,
-          paymentMethod,
-        };
 
         const result = await SuccessBookingsCollection.updateOne(
           { _id: new ObjectId(bookingId) },
-          { $set: updatedBooking }
+          {
+            $set: {
+              email: updateData.email,
+              phoneNumber: updateData.phoneNumber,
+              driversLicense: updateData.driversLicense,
+              status: updateData.status,
+              updatedAt: new Date()
+            }
+          }
         );
 
         if (result.matchedCount === 0) {
-          return res
-            .status(404)
-            .send({ success: false, message: "Booking not found" });
+          return res.status(404).json({
+            success: false,
+            message: "Booking not found"
+          });
         }
 
-        res.send({ success: true, message: "Booking updated successfully" });
+        res.json({
+          success: true,
+          message: "Booking updated successfully"
+        });
+
       } catch (error) {
-        // console.error("Error updating booking:", error);
-        res
-          .status(500)
-          .send({ success: false, error: "Failed to update booking" });
+        console.error("Error updating booking:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to update booking",
+          error: error.message
+        });
       }
     });
 
@@ -1622,6 +1714,80 @@ async function run() {
       const result = await SuccessBookingsCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
+
+// 
+app.post('/chat/token', async (req, res) => {
+  const { userId } = req.body;
+  try {
+    const token = serverClient.createToken(userId);
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Error generating chat token' });
+      }
+    });
+
+   // Add this near your other Stream Chat related code
+app.post('/chat/setup-support', async (req, res) => {
+  try {
+    // Create support agent user if it doesn't exist
+    await serverClient.upsertUser({
+      id: 'support-agent',
+      name: 'Customer Support',
+      role: 'admin',
+    });
+
+    res.json({ message: 'Support agent setup successful' });
+  } catch (error) {
+    console.error('Error setting up support agent:', error);
+      res.status(500).json({ error: 'Error setting up support agent' });
+    }
+  }); 
+
+
+  // Add admin token generation
+app.post('/chat/admin-token', async (req, res) => {
+  try {
+    // Verify if the user is an admin (implement your own auth check)
+    // if (!isAdmin(req.user)) {
+    //   return res.status(403).json({ error: 'Unauthorized' });
+    // }
+
+    const token = serverClient.createToken('support-agent');
+    res.json({ token });
+  } catch (error) {
+    console.error('Error generating admin token:', error);
+    res.status(500).json({ error: 'Error generating admin token' });
+  }
+});
+
+// // Add this endpoint for user tokens
+// app.post('/chat/token', async (req, res) => {
+//   const { userId } = req.body;
+//   try {
+//     const token = serverClient.createToken(userId);
+//     res.json({ token });
+//   } catch (error) {
+//     console.error('Error generating user token:', error);
+//     res.status(500).json({ error: 'Error generating chat token' });
+//   }
+// });
+
+// Add user verification endpoint
+app.post('/chat/verify-access', async (req, res) => {
+  const { userId } = req.body;
+  try {
+    // Check if user has active membership or is allowed to chat
+    const user = await usersCollection.findOne({ uid: userId });
+    const hasAccess = user && (user.role === 'premium' || user.role === 'member');
+    
+    res.json({ hasAccess });
+  } catch (error) {
+    console.error('Error verifying chat access:', error);
+    res.status(500).json({ error: 'Error verifying chat access' });
+    }
+  });
+
 
      app.post("/contact", async (req, res) => {
        const contactData = req.body;
