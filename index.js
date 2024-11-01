@@ -1197,51 +1197,56 @@ async function run() {
     app.put("/bookings/:bookingId", async (req, res) => {
       try {
         const bookingId = req.params.bookingId;
+        const updateData = req.body;
 
+        // Validate bookingId
         if (!ObjectId.isValid(bookingId)) {
-          return res
-            .status(400)
-            .send({ success: false, message: "Invalid booking ID format" });
+          return res.status(400).json({
+            success: false,
+            message: "Invalid booking ID format"
+          });
         }
 
-        const { email, phoneNumber, paymentMethod } = req.body;
-        // console.log(email, phoneNumber, paymentMethod);
-        // console.log("Request body:", req.body);
-        if (!email || !phoneNumber || !paymentMethod) {
-          return res
-            .status(400)
-            .send({ success: false, message: "Required fields missing." });
+        // Validate required fields
+        if (!updateData.email || !updateData.phoneNumber) {
+          return res.status(400).json({
+            success: false,
+            message: "Email and phone number are required"
+          });
         }
-
-        let driversLicenseUrl = "";
-        if (req.files && req.files.driversLicense) {
-          driversLicenseUrl = await uploadFile(req.files.driversLicense);
-        }
-
-        const updatedBooking = {
-          email,
-          phoneNumber,
-          driversLicense: driversLicenseUrl,
-          paymentMethod,
-        };
 
         const result = await SuccessBookingsCollection.updateOne(
           { _id: new ObjectId(bookingId) },
-          { $set: updatedBooking }
+          {
+            $set: {
+              email: updateData.email,
+              phoneNumber: updateData.phoneNumber,
+              driversLicense: updateData.driversLicense,
+              status: updateData.status,
+              updatedAt: new Date()
+            }
+          }
         );
 
         if (result.matchedCount === 0) {
-          return res
-            .status(404)
-            .send({ success: false, message: "Booking not found" });
+          return res.status(404).json({
+            success: false,
+            message: "Booking not found"
+          });
         }
 
-        res.send({ success: true, message: "Booking updated successfully" });
+        res.json({
+          success: true,
+          message: "Booking updated successfully"
+        });
+
       } catch (error) {
-        // console.error("Error updating booking:", error);
-        res
-          .status(500)
-          .send({ success: false, error: "Failed to update booking" });
+        console.error("Error updating booking:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to update booking",
+          error: error.message
+        });
       }
     });
 
