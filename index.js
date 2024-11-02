@@ -2,19 +2,19 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 const { MongoClient, ServerApiVersion, ObjectId, Long } = require("mongodb");
 const { default: axios } = require("axios");
-const StreamChat = require('stream-chat').StreamChat;
+const StreamChat = require("stream-chat").StreamChat;
 const app = express();
 const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
 app.use(express.json());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xrbh57q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -24,13 +24,13 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-    serverSelectionTimeoutMS: 60000
+    serverSelectionTimeoutMS: 60000,
   },
 });
 // nodemailer
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  host: 'smtp.gmail.com',
+  service: "gmail",
+  host: "smtp.gmail.com",
   port: 587,
   secure: false,
   auth: {
@@ -40,11 +40,14 @@ const transporter = nodemailer.createTransport({
 });
 
 // streamChat client
-const serverClient = StreamChat.getInstance(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
+const serverClient = StreamChat.getInstance(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET
+);
 
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
-const is_live = false //true for live, false for sandbox
+const is_live = false; //true for live, false for sandbox
 
 async function run() {
   try {
@@ -175,43 +178,43 @@ async function run() {
     app.post("/cars", async (req, res) => {
       try {
         const carData = req.body;
-        
+
         // Validate required fields
         if (!carData.price || !carData.price_per_day) {
           return res.status(400).json({
             success: false,
-            message: "Price is required"
+            message: "Price is required",
           });
         }
 
         if (!carData.name || !carData.email) {
           return res.status(400).json({
             success: false,
-            message: "Host name and email are required"
+            message: "Host name and email are required",
           });
         }
 
         // Ensure price is a number
         carData.price = Number(carData.price);
         carData.price_per_day = Number(carData.price_per_day);
-        
+
         if (isNaN(carData.price) || isNaN(carData.price_per_day)) {
           return res.status(400).json({
             success: false,
-            message: "Price must be a valid number"
+            message: "Price must be a valid number",
           });
         }
 
         // Log the data being inserted
-        console.log('Inserting car data:', carData);
+        // console.log('Inserting car data:', carData);
 
         const result = await carsCollection.insertOne(carData);
-        
+
         if (result.acknowledged) {
           res.status(201).json({
             success: true,
             message: "Car added successfully",
-            carId: result.insertedId
+            carId: result.insertedId,
           });
         } else {
           throw new Error("Failed to insert car");
@@ -221,7 +224,7 @@ async function run() {
         res.status(500).json({
           success: false,
           message: "Failed to add car",
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -232,16 +235,16 @@ async function run() {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await hostCarCollection.deleteOne(query);
-        
+
         if (result.deletedCount === 1) {
           res.status(200).json({
             success: true,
-            message: "Car deleted successfully from hostCar collection"
+            message: "Car deleted successfully from hostCar collection",
           });
         } else {
           res.status(404).json({
             success: false,
-            message: "Car not found in hostCar collection"
+            message: "Car not found in hostCar collection",
           });
         }
       } catch (error) {
@@ -249,7 +252,7 @@ async function run() {
         res.status(500).json({
           success: false,
           message: "Failed to delete car",
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -853,7 +856,7 @@ async function run() {
     app.get("/favoritesCars/:email", async (req, res) => {
       const email = req.params.email;
       const result = await favoriteCarsCollection.find({ email }).toArray();
-      console.log("result:", result);
+      // console.log("result:", result);
       if (result) {
         res.send(result);
       } else {
@@ -972,13 +975,11 @@ async function run() {
           .status(200)
           .send({ success: true, message: "Plan name updated successfully" });
       } catch (error) {
-        res
-          .status(500)
-          .send({
-            success: false,
-            message: "Failed to update plan name",
-            error,
-          });
+        res.status(500).send({
+          success: false,
+          message: "Failed to update plan name",
+          error,
+        });
       }
     });
     app.delete("/favoritesCars/:id", async (req, res) => {
@@ -1144,7 +1145,7 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       try {
         const bookingData = req.body;
-        const result = await SuccessBookingsCollection.insertOne(bookingData);
+        const result = await bookingsCollection.insertOne(bookingData);
         res.send({ success: true, bookingId: result.insertedId });
       } catch (error) {
         console.error("Error creating booking:", error);
@@ -1204,7 +1205,7 @@ async function run() {
         if (!ObjectId.isValid(bookingId)) {
           return res.status(400).json({
             success: false,
-            message: "Invalid booking ID format"
+            message: "Invalid booking ID format",
           });
         }
 
@@ -1212,7 +1213,7 @@ async function run() {
         if (!updateData.email || !updateData.phoneNumber) {
           return res.status(400).json({
             success: false,
-            message: "Email and phone number are required"
+            message: "Email and phone number are required",
           });
         }
 
@@ -1224,29 +1225,28 @@ async function run() {
               phoneNumber: updateData.phoneNumber,
               driversLicense: updateData.driversLicense,
               status: updateData.status,
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           }
         );
 
         if (result.matchedCount === 0) {
           return res.status(404).json({
             success: false,
-            message: "Booking not found"
+            message: "Booking not found",
           });
         }
 
         res.json({
           success: true,
-          message: "Booking updated successfully"
+          message: "Booking updated successfully",
         });
-
       } catch (error) {
         console.error("Error updating booking:", error);
         res.status(500).json({
           success: false,
           message: "Failed to update booking",
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -1372,12 +1372,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        // success_url: "https://urban-driveserver.vercel.app/success-booking",
-        success_url: "http://localhost:8000/success-booking",
-        // fail_url: "https://urban-driveserver.vercel.app/fail",
-        fail_url: "http://localhost:8000/fail",
-        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
-        cancel_url: "http://localhost:8000/cancel",
+        success_url: "https://urban-driveserver.vercel.app/success-booking",
+        // success_url: "http://localhost:8000/success-booking",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        // fail_url: "http://localhost:8000/fail",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        // cancel_url: "http://localhost:8000/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1454,8 +1454,8 @@ async function run() {
         update
       );
       // console.log(updateData);
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
-      res.redirect("http://localhost:5173/success");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("http://localhost:5173/success");
     });
 
     // get paymentSuccess data
@@ -1481,12 +1481,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "http://localhost:8000/success-payment",
-        // success_url: "https://urban-driveserver.vercel.app/success-payment",
-        fail_url: "http://localhost:8000/fail",
-        // fail_url: "https://urban-driveserver.vercel.app/fail",
-        cancel_url: "http://localhost:8000/cancel",
-        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        // success_url: "http://localhost:8000/success-payment",
+        success_url: "https://urban-driveserver.vercel.app/success-payment",
+        // fail_url: "http://localhost:8000/fail",
+        fail_url: "https://urban-driveserver.vercel.app/fail",
+        // cancel_url: "http://localhost:8000/cancel",
+        cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1553,8 +1553,8 @@ async function run() {
         update
       );
       // console.log(updateData);
-      // res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
-      res.redirect("http://localhost:5173/success");
+      res.redirect("https://cheery-bubblegum-eecb30.netlify.app/success");
+      // res.redirect("http://localhost:5173/success");
     });
     // fail-payment
     app.post("/fail", async (req, res) => {
@@ -1677,8 +1677,7 @@ async function run() {
     app.get("/recent-bookings/:email", async (req, res) => {
       const email = req.params.email;
       const query = { hostEmail: email };
-      const recentBookings = await SuccessBookingsCollection
-        .find(query)
+      const recentBookings = await SuccessBookingsCollection.find(query)
         .sort({ startDate: -1 })
         .limit(4)
         .toArray();
@@ -1706,100 +1705,108 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
-          make:data.make,
-          model:data.model,
-          amount:data.amount,
+          make: data.make,
+          model: data.model,
+          amount: data.amount,
         },
       };
-      const result = await SuccessBookingsCollection.updateOne(filter, updateDoc);
+      const result = await SuccessBookingsCollection.updateOne(
+        filter,
+        updateDoc
+      );
       res.send(result);
     });
 
-
-// 
-app.post('/chat/token', async (req, res) => {
-  const { userId } = req.body;
-  try {
-    const token = serverClient.createToken(userId);
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ error: 'Error generating chat token' });
+    //
+    app.post("/chat/token", async (req, res) => {
+      const { userId } = req.body;
+      try {
+        const token = serverClient.createToken(userId);
+        res.json({ token });
+      } catch (error) {
+        res.status(500).json({ error: "Error generating chat token" });
       }
     });
 
-   // Add this near your other Stream Chat related code
-app.post('/chat/setup-support', async (req, res) => {
-  try {
-    // Create support agent user if it doesn't exist
-    await serverClient.upsertUser({
-      id: 'support-agent',
-      name: 'Customer Support',
-      role: 'admin',
+    // Add this near your other Stream Chat related code
+    app.post("/chat/setup-support", async (req, res) => {
+      try {
+        // Create support agent user if it doesn't exist
+        await serverClient.upsertUser({
+          id: "support-agent",
+          name: "Customer Support",
+          role: "admin",
+        });
+
+        res.json({ message: "Support agent setup successful" });
+      } catch (error) {
+        // console.error('Error setting up support agent:', error);
+        res.status(500).json({ error: "Error setting up support agent" });
+      }
     });
 
-    res.json({ message: 'Support agent setup successful' });
-  } catch (error) {
-    console.error('Error setting up support agent:', error);
-      res.status(500).json({ error: 'Error setting up support agent' });
-    }
-  }); 
+    // Add admin token generation
+    app.post("/chat/admin-token", async (req, res) => {
+      try {
+        // Verify if the user is an admin (implement your own auth check)
+        // if (!isAdmin(req.user)) {
+        //   return res.status(403).json({ error: 'Unauthorized' });
+        // }
 
+        const token = serverClient.createToken("support-agent");
+        res.json({ token });
+      } catch (error) {
+        // console.error('Error generating admin token:', error);
+        res.status(500).json({ error: "Error generating admin token" });
+      }
+    });
 
-  // Add admin token generation
-app.post('/chat/admin-token', async (req, res) => {
-  try {
-    // Verify if the user is an admin (implement your own auth check)
-    // if (!isAdmin(req.user)) {
-    //   return res.status(403).json({ error: 'Unauthorized' });
-    // }
+    // // Add this endpoint for user tokens
+    // app.post('/chat/token', async (req, res) => {
+    //   const { userId } = req.body;
+    //   try {
+    //     const token = serverClient.createToken(userId);
+    //     res.json({ token });
+    //   } catch (error) {
+    //     console.error('Error generating user token:', error);
+    //     res.status(500).json({ error: 'Error generating chat token' });
+    //   }
+    // });
 
-    const token = serverClient.createToken('support-agent');
-    res.json({ token });
-  } catch (error) {
-    console.error('Error generating admin token:', error);
-    res.status(500).json({ error: 'Error generating admin token' });
-  }
-});
+    // Add user verification endpoint
+    app.post("/chat/verify-access", async (req, res) => {
+      const { userId } = req.body;
+      try {
+        // Check if user has active membership or is allowed to chat
+        const user = await usersCollection.findOne({ uid: userId });
+        const hasAccess =
+          user && (user.role === "premium" || user.role === "member");
 
-// // Add this endpoint for user tokens
-// app.post('/chat/token', async (req, res) => {
-//   const { userId } = req.body;
-//   try {
-//     const token = serverClient.createToken(userId);
-//     res.json({ token });
-//   } catch (error) {
-//     console.error('Error generating user token:', error);
-//     res.status(500).json({ error: 'Error generating chat token' });
-//   }
-// });
+        res.json({ hasAccess });
+      } catch (error) {
+        console.error("Error verifying chat access:", error);
+        res.status(500).json({ error: "Error verifying chat access" });
+      }
+    });
 
-// Add user verification endpoint
-app.post('/chat/verify-access', async (req, res) => {
-  const { userId } = req.body;
-  try {
-    // Check if user has active membership or is allowed to chat
-    const user = await usersCollection.findOne({ uid: userId });
-    const hasAccess = user && (user.role === 'premium' || user.role === 'member');
-    
-    res.json({ hasAccess });
-  } catch (error) {
-    console.error('Error verifying chat access:', error);
-    res.status(500).json({ error: 'Error verifying chat access' });
-    }
-  });
+    app.post("/contact", async (req, res) => {
+      const contactData = req.body;
+      const result = await contactCollection.insertOne(contactData);
+      res.send(result);
+    });
 
+    // get specific car model
+    app.get("/model/:car",async(req,res) => {
+      const car = req.params.car;
+      const query = {make : car};
+      const result = await carsCollection.find(query).toArray();
+      res.send(result);
+    })
 
-     app.post("/contact", async (req, res) => {
-       const contactData = req.body;
-       const result = await contactCollection.insertOne(contactData);
-       res.send(result);
-     });
-
-     
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
     // app.post("/contact", async (req, res) => {
     //   const contactData = req.body;
     //   const result = await contactCollection.insertOne(contactData);
