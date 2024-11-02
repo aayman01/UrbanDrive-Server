@@ -372,7 +372,18 @@ async function run() {
           .json({ success: false, message: "Failed to submit review" });
       }
     });
-
+    app.get("/review/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await reviewsCollection.find({ email }).toArray();
+      console.log("result:", result);
+      if (result.length > 0) { // Check if there are any reviews
+          res.send(result);
+      } else {
+          res.status(404).send({ message: "User review not found" });
+      }
+  });
+  
+  
     // get reviews
     app.get("/reviews", async (req, res) => {
       try {
