@@ -1188,9 +1188,10 @@ async function run() {
             .send({ success: false, message: "Invalid booking ID format" });
         }
 
-        const booking = await SuccessBookingsCollection.findOne({
+        const booking = await bookingsCollection.findOne({
           _id: new ObjectId(bookingId),
         });
+        
         if (booking) {
           res.send(booking);
         } else {
