@@ -1813,6 +1813,14 @@ async function run() {
       const result = await carsCollection.find(query).toArray();
       res.send(result);
     })
+    app.get("/location/:car",async(req,res) => {
+      const car = req.params.car;
+      const query = {city : car};
+      const result = await carsCollection.find(query).toArray();
+      res.send(result);
+    })
+
+
 
     // await client.db("admin").command({ ping: 1 });
     // console.log(
