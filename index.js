@@ -12,7 +12,15 @@ const port = process.env.PORT || 8000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 
-app.use(express.json());
+// app.use((req, res, next) => {
+//   res.setHeader(
+//     "Content-Security-Policy",
+//     "default-src 'self'; script-src 'self' https:vercel.app/; style-src 'self' 'unsafe-inline'"
+//   );
+//   next();
+// });
+
+// app.use(express.json());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -24,7 +32,6 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-    serverSelectionTimeoutMS: 60000,
   },
 });
 // nodemailer
@@ -52,7 +59,7 @@ const is_live = false; //true for live, false for sandbox
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const usersCollection = client.db("urbanDrive").collection("users");
@@ -175,6 +182,11 @@ async function run() {
     });
 
     // posting cars
+
+    app.get("/cars-test", (req, res) => {
+      console.log("Received request for /cars-test");
+      res.send("Cars endpoint is working!");
+    });
     app.post("/cars", async (req, res) => {
       try {
         const carData = req.body;
@@ -220,7 +232,7 @@ async function run() {
           throw new Error("Failed to insert car");
         }
       } catch (error) {
-        console.error("Error adding car:", error);
+        // console.error("Error adding car:", error);
         res.status(500).json({
           success: false,
           message: "Failed to add car",
@@ -248,7 +260,7 @@ async function run() {
           });
         }
       } catch (error) {
-        console.error("Error deleting car from hostCar:", error);
+        // console.error("Error deleting car from hostCar:", error);
         res.status(500).json({
           success: false,
           message: "Failed to delete car",
@@ -999,7 +1011,7 @@ async function run() {
 
       try {
         const carExists = await favoriteCarsCollection.findOne({
-          _id: new ObjectId(carId),
+          carId: new ObjectId(carId),
         });
         // console.log('exist car:', carExists);
         // console.log('ObjectId:', new ObjectId(carId));
@@ -1010,7 +1022,7 @@ async function run() {
             .send({ message: "Car not found in favorites" });
         }
         const result = await favoriteCarsCollection.deleteOne({
-          _id: new ObjectId(carId),
+          carId: new ObjectId(carId),
         });
         // console.log('result:',result);
 
@@ -1038,7 +1050,9 @@ async function run() {
     });
     app.get("/booking/:email", async (req, res) => {
       const email = req.params.email;
-      const result = await bookingsCollection.find({ email }).toArray();
+      const result = await SuccessBookingsCollection.find({
+        cus_email: email,
+      }).toArray();
       // console.log('result:',result)
       if (result) {
         res.send(result);
@@ -1140,7 +1154,7 @@ async function run() {
     // get payment customer payment history email
     app.get("/myHistory/:email", async (req, res) => {
       const email = req.params.email;
-      const query = { email: email };
+      const query = { cus_email: email };
       const result = await SuccessBookingsCollection.find(query).toArray();
       res.send(result);
     });
@@ -1156,7 +1170,7 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       try {
         const bookingData = req.body;
-        const result = await bookingsCollection.insertOne(bookingData);
+        const result = await SuccessBookingsCollection.insertOne(bookingData);
         res.send({ success: true, bookingId: result.insertedId });
       } catch (error) {
         console.error("Error creating booking:", error);
@@ -1254,7 +1268,7 @@ async function run() {
           message: "Booking updated successfully",
         });
       } catch (error) {
-        console.error("Error updating booking:", error);
+        // console.error("Error updating booking:", error);
         res.status(500).json({
           success: false,
           message: "Failed to update booking",
@@ -1384,12 +1398,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        success_url: "https://urban-driveserver.vercel.app/success-booking",
-        // success_url: "http://localhost:8000/success-booking",
-        fail_url: "https://urban-driveserver.vercel.app/fail",
-        // fail_url: "http://localhost:8000/fail",
-        cancel_url: "https://urban-driveserver.vercel.app/cancel",
-        // cancel_url: "http://localhost:8000/cancel",
+        // success_url: "https://urban-driveserver.vercel.app/success-booking",
+        success_url: "http://localhost:8000/success-booking",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
+        fail_url: "http://localhost:8000/fail",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        cancel_url: "http://localhost:8000/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1493,12 +1507,12 @@ async function run() {
         total_amount: paymentInfo?.price,
         currency: paymentInfo?.currency || "BDT",
         tran_id: trxId,
-        // success_url: "http://localhost:8000/success-payment",
-        success_url: "https://urban-driveserver.vercel.app/success-payment",
-        // fail_url: "http://localhost:8000/fail",
-        fail_url: "https://urban-driveserver.vercel.app/fail",
-        // cancel_url: "http://localhost:8000/cancel",
-        cancel_url: "https://urban-driveserver.vercel.app/cancel",
+        success_url: "http://localhost:8000/success-payment",
+        // success_url: "https://urban-driveserver.vercel.app/success-payment",
+        fail_url: "http://localhost:8000/fail",
+        // fail_url: "https://urban-driveserver.vercel.app/fail",
+        cancel_url: "http://localhost:8000/cancel",
+        // cancel_url: "https://urban-driveserver.vercel.app/cancel",
         emi_option: 0,
         cus_name: paymentInfo?.name,
         cus_email: paymentInfo?.email,
@@ -1729,6 +1743,22 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/updateApStatus/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          hostIsApproved: data.hostIsApproved,
+        },
+      };
+      const result = await SuccessBookingsCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
+    });
+
     //
     app.post("/chat/token", async (req, res) => {
       const { userId } = req.body;
@@ -1796,7 +1826,7 @@ async function run() {
 
         res.json({ hasAccess });
       } catch (error) {
-        console.error("Error verifying chat access:", error);
+        // console.error("Error verifying chat access:", error);
         res.status(500).json({ error: "Error verifying chat access" });
       }
     });
@@ -1808,30 +1838,18 @@ async function run() {
     });
 
     // get specific car model
-    app.get("/model/:car",async(req,res) => {
+    app.get("/model/:car", async (req, res) => {
       const car = req.params.car;
-      const query = {make : car};
+      const query = { make: car };
       const result = await carsCollection.find(query).toArray();
       res.send(result);
-    })
-    app.get("/location/:car",async(req,res) => {
+    });
+    app.get("/location/:car", async (req, res) => {
       const car = req.params.car;
-      const query = {city : car};
+      const query = { city: car };
       const result = await carsCollection.find(query).toArray();
       res.send(result);
-    })
-
-
-
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
-    // app.post("/contact", async (req, res) => {
-    //   const contactData = req.body;
-    //   const result = await contactCollection.insertOne(contactData);
-    //   res.send(result);
-    // });
+    });
 
     // get contact
     app.get("/contact", async (req, res) => {
