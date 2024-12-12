@@ -1,4 +1,5 @@
 const express = require("express");
+const helmet = require("helmet");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -19,7 +20,15 @@ app.use(cors());
 //   );
 //   next();
 // });
-
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'", "https://vercel.live"],
+      },
+    },
+  })
+);
 // app.use(express.json());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
